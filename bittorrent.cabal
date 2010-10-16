@@ -1,0 +1,28 @@
+Name:		     bittorrent
+Version:             0.1
+License:             BSD3
+License-file:        LICENSE
+Author:              Markus Barenhoff
+Maintainer:          Markus Barenhoff <alios@alios.org>
+Copyright:	     Markus Barenhoff 2010
+Homepage:            http://github.com/alios/bittorrent
+
+Stability:           Stable
+Category:            Network
+Synopsis: 	     A pure haskell bittorrent implementation
+
+Build-type:          Simple
+Cabal-version:       >=1.8
+Tested-With:	     GHC==6.12.2
+
+
+Library
+  Exposed-Modules:
+    Network.Bittorrent.Bep003
+
+  Extensions: 
+
+  Build-depends: 
+   base >= 4, network >= 2.2, HTTP >= 4000, 
+   QuickCheck >= 2 
+
