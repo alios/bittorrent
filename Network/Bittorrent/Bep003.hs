@@ -12,30 +12,28 @@ module Network.Bittorrent.Bep003
        ( BEncodedT(..), MetaInfo(..), MetaInfoFile(..) 
        , TrackerResponse(..), Peer(..) ) where
 
-import Network.URI
-import Data.Maybe (fromJust)
-import Data.Char (isDigit, ord)
-import Data.List (sortBy)
+import Data.Binary
+import Data.Binary.Get
+import Data.Binary.Put
+import Data.Char
 import Data.Word
 import Data.Bits
+import Data.Maybe
+import Network.URI
+import Data.Encoding
+import Data.Encoding.UTF8
+import Data.Encoding.ASCII
+import Data.ByteString.Internal(w2c, c2w)
+import qualified Data.Digest.SHA1 as SHA1
+import qualified Data.ByteString.Lazy as BS 
+import qualified Data.Map as M
+
+import System.IO
 import System.Directory
 import System.FilePath.Posix
 import Foreign.Marshal
 import Foreign.Storable
-import qualified Data.Digest.SHA1 as SHA1
-import qualified Data.Map as M 
-import Text.ParserCombinators.ReadP
-import qualified Data.Binary as B
-import qualified Data.Binary.Get as B
-import System.IO
 
-t = do
-  h <- openBinaryFile "/home/alios/Downloads/t.torrent" ReadMode
-  i <- hGetContents h
-  let ret :: BEncodedT
-      ret = read i
-  print $ metaInfoPieces ret
-  hClose h
 
 class TrackerResponse r where
   -- | Tracker responses are bencoded dictionaries.   
@@ -65,10 +63,10 @@ class Peer p where
   peerDict :: p -> M.Map String BEncodedT
   peerId :: p -> SHA1.Word160
   peerId p =  
-    let is = stringValue  $ (M.!) (peerDict p) "peer id"
+    let is = utf8StringValue  $ (M.!) (peerDict p) "peer id"
     in ws_w160 $ map (fromInteger . toInteger . ord) is
   peerIp :: p -> String
-  peerIp p = stringValue  $ (M.!) (peerDict p) "ip"
+  peerIp p = utf8StringValue  $ (M.!) (peerDict p) "ip"
   peerPort :: p -> Integer
   peerPort p = integerValue  $ (M.!) (peerDict p) "port"
 
@@ -81,7 +79,7 @@ class MetaInfo m where
   -- | The URL of the tracker.
   metaAnnounce :: m -> URI 
   metaAnnounce m = 
-    let uriStr = stringValue $ (M.!) (metaDict m) "announce"
+    let uriStr = utf8StringValue $ (M.!) (metaDict m) "announce"
     in fromJust $ parseURI uriStr
   -- | This maps to a dictionary, with keys described below
   metaInfo :: m -> M.Map String BEncodedT
@@ -103,7 +101,7 @@ class MetaInfo m where
   -- the piece at the corresponding index.
   metaInfoPieces :: m -> [SHA1.Word160]
   metaInfoPieces m =
-    let ps = stringValue $ (M.!) (metaInfo m) "pieces"
+    let ps = utf8StringValue $ (M.!) (metaInfo m) "pieces"
         ps' :: [Word8]
         ps' = map (fromInteger . toInteger . ord) ps
     in map ws_w160 $ split20 ps'
@@ -148,12 +146,13 @@ split20 as =
 
 instance MetaInfo BEncodedT where
   metaDict = dictMap
-   
-    
+
+
+
 data BEncodedT = 
   -- | Strings are length-prefixed base ten followed by a colon and the string.
   -- For example 4:spam corresponds to 'spam'.  
-  BString String
+  BString [Word8]
                
   -- | Integers are represented by an 'i' followed by the number in base 10 
   -- followed by an 'e'. For example i3e corresponds to 3 and i-3e corresponds 
@@ -173,76 +172,45 @@ data BEncodedT =
   -- d4:spaml1:a1:bee corresponds to {'spam': ['a', 'b']}. Keys must be strings 
   -- and appear in sorted order (sorted as raw strings, not alphanumerics).  
   | BDict [ (String, BEncodedT) ]
-  deriving (Eq, Ord)
-                        
-instance Show BEncodedT where
-  show (BString s) = (show $ length s) ++ ":" ++ s
-  show (BInteger i) = "i" ++ show i ++ "e"
-  show (BList l) = "l" ++ (concat $ map show l)  ++  "e"
-  show d@(BDict _) = let (BDict d') = sortBDict d 
-                     in "d" ++ (concat $ map (\(k,v) -> show k ++ show v) d')
+  deriving (Eq, Ord, Show, Read)
 
-instance Read BEncodedT where
-  readsPrec _ = readP_to_S parseBEncoded
+instance Binary BEncodedT where
+  get = getBEncodedT
+  put = putBEncodedT
+  
 
-stringValue (BString s) = s
-utf8StringValue = stringValue
+getBString :: Get BEncodedT
+getBString = do
+  len <- fmap fromInteger getInteger
+  getchar ':'
+  str <- getLazyByteString len
+  return $ BString $ BS.unpack $ str
+  
 
+decodeE :: (Encoding enc) => enc -> [Word8] -> String 
+decodeE enc ws = decodeLazyByteString enc $ BS.pack ws
+
+isPositivDigit d = (d /= '0') && (isDigit d)
+
+getBInteger :: Get BEncodedT
+getBInteger = do
+  getchar 'i'
+  c1 <- getPredC $ (\c -> isDigit c || c == '-')
+  d <- case (w2c c1) of
+    '-' -> do c2 <- getPredC isPositivDigit
+              cs <- getWhileC isDigit
+              return $ BInteger $ read $ decodeE ASCII (c1 : c2 : cs)
+    '0' -> return $ BInteger 0
+    otherwise -> do cs <- getWhileC isDigit
+                    return $ BInteger $ read $ decodeE ASCII (c1 : cs)
+  getchar 'e'
+  return d
+
+utf8StringValue (BString s) = decodeLazyByteString UTF8 (BS.pack s)
 integerValue (BInteger i) = i
 listValue (BList l) = l
 dictValue (BDict d) = d
 dictMap = M.fromList . dictValue
-
-
-parseBEncoded = parseBString <++ parseBInteger <++ parseBList <++ parseBDict
-
-parseBString = do
-  len <- fmap read $ munch1 isDigit
-  char ':'
-  fmap BString $ count len get
-  
-parseBInteger = do
-  char 'i'
-  i <- parseNegativeInteger <++ parseNullInteger <++ parsePositivInteger
-  return i
-
-parseNegativeInteger = do 
-  c1 <- char '-'
-  c2 <- satisfy isPositivDigit
-  cs <- munch isDigit
-  char 'e'
-  return $ BInteger $ read $ c1 : c2 : cs
-  
-parseNullInteger = do 
-  string "0e"
-  return $ BInteger 0
-    
-parsePositivInteger = do
-  c2 <- satisfy isPositivDigit
-  cs <- munch isDigit
-  char 'e'
-  return $ BInteger $ read $ c2 : cs
-  
-isPositivDigit d = (d /= '0') && (isDigit d)
-
-parseBList = parseBListP parseBEncoded
-parseBListP elemenP = do
-  char 'l'
-  fmap BList $ manyTill elemenP (char 'e')
-
-parseBDictPair valueP = do
-  key <- fmap stringValue parseBString
-  value <- valueP
-  return (key, value)
-
-parseBDict = do
-  char 'd'
-  dps <- manyTill (parseBDictPair parseBEncoded) (char 'e')
-  return $ BDict dps
-
-sortBDict (BDict d) = BDict $ sortBy dictSort d
-  where dictSort (k1,_) (k2,_) = compare k1 k2
-
 
 ws_w160 :: [Word8] -> SHA1.Word160
 ws_w160 ws = 
@@ -264,6 +232,125 @@ w8_w32 a b c d =
       d' :: Word32
       d' = (fromInteger $ toInteger d)
   in a' .|. (b' `shiftL` 1) .|. (c' `shiftL` 2) .|. (d' `shiftL` 3)
+
+
+
+getBList :: Get BEncodedT
+getBList = do
+  getchar 'l'
+  bs <- manyTill getBEncodedT (c2w 'e')
+  getchar 'e'
+  return $ BList bs
+
+getBDictPair :: Get (String, BEncodedT)
+getBDictPair = do
+  k <- fmap utf8StringValue getBString
+  v <- getBEncodedT
+  return (k, v)
+  
+getBDict :: Get BEncodedT
+getBDict = do
+  getchar 'd'
+  dict <- manyTill getBDictPair (c2w 'e')
+  getchar 'e'
+  return $ BDict dict
+  
+getBEncodedT :: Get BEncodedT
+getBEncodedT = do
+  t <- fmap w2c $ lookAhead getWord8
+  if (isDigit t) 
+    then getBString
+    else if (t == 'i')
+         then getBInteger
+         else if (t == 'l')
+              then getBList
+              else if (t == 'd')
+                   then getBDict
+                   else fail $ 
+                        "getBEncoded: expected digit,'i','l' or 'd', read '" 
+                        ++ show t ++ "'"
+                        
+putBEncodedT :: BEncodedT -> Put
+putBEncodedT (BString s) =
+  putLazyByteString $ 
+    BS.concat [ encodeLazyByteString ASCII $ show $ length s
+              , BS.singleton $ c2w ':'
+              , BS.pack s
+              ]
+    
+putBEncodedT (BInteger i) =
+  putLazyByteString $ 
+    BS.concat [ BS.singleton $ c2w 'i'
+              , encodeLazyByteString ASCII $ show i
+              , BS.singleton $ c2w 'e'
+              ]
+putBEncodedT (BList l) = do
+  putWord8 $ c2w 'l'
+  sequence $ map putBEncodedT l
+  putWord8 $ c2w 'e'
+putBEncodedT (BDict d) = do 
+  putWord8 $ c2w 'd'
+  sequence $ map putBDictPair d
+  putWord8 $ c2w 'd'
+ 
+putBDictPair :: (String, BEncodedT) -> Put
+putBDictPair (k,v) = do
+  putLazyByteString $ encodeLazyByteString UTF8 k
+  putBEncodedT v
+
+
+getWhile :: (Word8 -> Bool) -> Get [Word8]
+getWhile p = do
+  b <- lookAhead getWord8
+  if (p b) 
+    then do skip 1
+            bs <- getWhile p 
+            return $ b : bs
+    else return []
+    
+manyTill :: Get a -> Word8 -> Get [a]
+manyTill g p = do
+  nxt <- getWord8
+  if (nxt == p)
+    then return []
+    else do r <- g
+            rs <- manyTill g p
+            return $ r : rs
+            
+
+getWhileC :: (Char -> Bool) -> Get [Word8]
+getWhileC cp = getWhile $ charPred cp
+
+charPred :: (Char -> Bool) -> (Word8 -> Bool)
+charPred cp = \w -> cp $ w2c w
+
+getPred :: (Word8 -> Bool) -> Get Word8 
+getPred p = do
+  b <- lookAhead getWord8
+  if (p b) 
+    then do skip 1
+            return b
+    else fail $ "getPred: read unexpected '" ++ [w2c b] ++ "'" 
+
+getPredC :: (Char -> Bool) -> Get Word8
+getPredC cp = getPred $ charPred cp
+
+getchar :: Char -> Get Word8 
+getchar c = getPredC ((==) c)
+
+getN :: Get a -> Integer -> Get [a]
+getN g n
+  | n <= 0 = return []
+  | otherwise = do
+    r <- g
+    rs <- getN g (n - 1)
+    return $ r : rs
+
+getInteger :: Get Integer
+getInteger = do
+  d <- fmap w2c $ getPredC (\c -> isDigit c || c == '-')
+  ds <- fmap (map w2c) $ getWhileC isDigit
+  return $ read (d:ds)
 
 
 defaultPieceLength = 2 ^ 18
