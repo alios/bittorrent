@@ -32,12 +32,6 @@ t = do
   print $ metaInfoPieces ret
   hClose h
 
-
-
-  
-
-
-
 class TrackerResponse r where
   -- | Tracker responses are bencoded dictionaries.   
   responseDict :: r -> M.Map String BEncodedT
@@ -59,6 +53,9 @@ class TrackerResponse r where
   responsePeers :: r -> [BEncodedT]
   responsePeers r = listValue $ (M.!) (responseDict r) "peers"
 
+instance TrackerResponse BEncodedT where
+  responseDict = dictMap
+
 class Peer p where
   peerDict :: p -> M.Map String BEncodedT
   peerId :: p -> SHA1.Word160
@@ -70,9 +67,8 @@ class Peer p where
   peerPort :: p -> Integer
   peerPort p = integerValue  $ (M.!) (peerDict p) "port"
 
-
-instance TrackerResponse BEncodedT where
-  responseDict = dictMap
+instance Peer BEncodedT where
+  peerDict = dictMap
 
 -- | Metainfo files are bencoded dictionaries with the following keys:
 class MetaInfo m where
