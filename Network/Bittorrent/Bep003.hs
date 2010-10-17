@@ -35,6 +35,12 @@ import Foreign.Marshal
 import Foreign.Storable
 
 
+t = do
+  to <- ((decodeFile "/tmp/foo.torrent") :: IO BEncodedT)
+  print $ metaInfoName to
+  encodeFile "/tmp/foo1.torrent" to
+  
+
 class TrackerResponse r where
   -- | Tracker responses are bencoded dictionaries.   
   responseDict :: r -> M.Map String BEncodedT
@@ -271,33 +277,44 @@ getBEncodedT = do
                         ++ show t ++ "'"
                         
 putBEncodedT :: BEncodedT -> Put
-putBEncodedT (BString s) =
+putBEncodedT (BString s) = do
   putLazyByteString $ 
     BS.concat [ encodeLazyByteString ASCII $ show $ length s
               , BS.singleton $ c2w ':'
-              , BS.pack s
+              , BS.pack s 
               ]
+  flush
     
-putBEncodedT (BInteger i) =
+putBEncodedT (BInteger i) = do
   putLazyByteString $ 
     BS.concat [ BS.singleton $ c2w 'i'
               , encodeLazyByteString ASCII $ show i
               , BS.singleton $ c2w 'e'
               ]
+  flush
+  
 putBEncodedT (BList l) = do
   putWord8 $ c2w 'l'
   sequence $ map putBEncodedT l
   putWord8 $ c2w 'e'
+  flush
+  
 putBEncodedT (BDict d) = do 
   putWord8 $ c2w 'd'
   sequence $ map putBDictPair d
-  putWord8 $ c2w 'd'
- 
+  putWord8 $ c2w 'e'
+  flush
+  
 putBDictPair :: (String, BEncodedT) -> Put
 putBDictPair (k,v) = do
-  putLazyByteString $ encodeLazyByteString UTF8 k
+  let kstr = encodeLazyByteString UTF8 k
+  putLazyByteString $ 
+    BS.concat [ encodeLazyByteString ASCII $ show $ BS.length kstr
+              , BS.singleton $ c2w ':'
+              , kstr
+              ]
   putBEncodedT v
-
+  
 
 getWhile :: (Word8 -> Bool) -> Get [Word8]
 getWhile p = do
@@ -310,7 +327,7 @@ getWhile p = do
     
 manyTill :: Get a -> Word8 -> Get [a]
 manyTill g p = do
-  nxt <- getWord8
+  nxt <- lookAhead getWord8
   if (nxt == p)
     then return []
     else do r <- g
@@ -328,8 +345,7 @@ getPred :: (Word8 -> Bool) -> Get Word8
 getPred p = do
   b <- lookAhead getWord8
   if (p b) 
-    then do skip 1
-            return b
+    then do skip 1 >> return b
     else fail $ "getPred: read unexpected '" ++ [w2c b] ++ "'" 
 
 getPredC :: (Char -> Bool) -> Get Word8
