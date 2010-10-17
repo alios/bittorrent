@@ -24,5 +24,5 @@ Library
 
   Build-depends: 
    base >= 4, network >= 2.2, HTTP >= 4000, containers >= 0.3, Crypto >= 4.2,
-   QuickCheck >= 2 
+   directory >= 1.0, filepath >= 1.1, binary, QuickCheck >= 2 
 

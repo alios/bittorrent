@@ -18,10 +18,15 @@ import Data.Char (isDigit, ord)
 import Data.List (sortBy)
 import Data.Word
 import Data.Bits
+import System.Directory
+import System.FilePath.Posix
+import Foreign.Marshal
+import Foreign.Storable
 import qualified Data.Digest.SHA1 as SHA1
 import qualified Data.Map as M 
 import Text.ParserCombinators.ReadP
- 
+import qualified Data.Binary as B
+import qualified Data.Binary.Get as B
 import System.IO
 
 t = do
@@ -259,3 +264,38 @@ w8_w32 a b c d =
       d' :: Word32
       d' = (fromInteger $ toInteger d)
   in a' .|. (b' `shiftL` 1) .|. (c' `shiftL` 2) .|. (d' `shiftL` 3)
+
+
+defaultPieceLength = 2 ^ 18
+
+--createTorrent :: FilePath -> URI -> IO BEncodedT
+createTorrent fp announce = do
+  isDir  <- doesDirectoryExist fp
+  isFile <- doesFileExist fp
+  let name = takeFileName fp
+  let pieceLength = defaultPieceLength
+      
+
+  if (isFile) then do
+    h <- openFile fp ReadMode
+    hSetBuffering h (BlockBuffering (Just pieceLength))
+    size <- hFileSize h
+    pieces <- readPieces h pieceLength
+    hClose h
+    return $ map SHA1.hash pieces
+    else do
+    print "dirs are not implemented yet"
+    return []
+
+
+readPieces :: Handle -> Int -> IO [[Word8]]
+readPieces h l = do
+  ptrbuf <- mallocBytes l
+  l' <- hGetBuf h ptrbuf l
+  buf <- peekArray l' ptrbuf
+  free ptrbuf
+  if (l' == l) then do
+    bufs <- readPieces h l
+    return $ buf : bufs 
+    else do
+    return [buf]
