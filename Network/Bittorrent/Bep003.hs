@@ -9,7 +9,8 @@
 -- the file source to support very large numbers of downloaders with only a 
 -- modest increase in its load.
 module Network.Bittorrent.Bep003 
-       ( BEncodedT(..), MetaInfo(..), MetaInfoFile(..) ) where
+       ( BEncodedT(..), MetaInfo(..), MetaInfoFile(..) 
+       , TrackerResponse(..), Peer(..) ) where
 
 import Network.URI
 import Data.Maybe (fromJust)
@@ -30,6 +31,48 @@ t = do
       ret = read i
   print $ metaInfoPieces ret
   hClose h
+
+
+
+  
+
+
+
+class TrackerResponse r where
+  -- | Tracker responses are bencoded dictionaries.   
+  responseDict :: r -> M.Map String BEncodedT
+  responseHasError :: r -> Bool
+  responseHasError r = M.member "failure reason" (responseDict r) 
+  -- | If a tracker response has a key failure reason, then that maps to a 
+  -- human readable string which explains why the query failed, and no other 
+  -- keys are required.   
+  responseFailureReason :: r -> Maybe String
+  responseFailureReason r  
+     | (responseHasError r) = Just $ utf8StringValue $ 
+                              (M.!) (responseDict r) "failure reason"
+     | otherwise = Nothing
+  -- | maps to the number of seconds the downloader should wait between 
+  -- regular rerequests, and peers. 
+  responseInterval :: r -> Integer
+  responseInterval r = integerValue $ (M.!) (responseDict r) "interval"
+  -- | maps to a list of dictionaries corresponding to peers
+  responsePeers :: r -> [BEncodedT]
+  responsePeers r = listValue $ (M.!) (responseDict r) "peers"
+
+class Peer p where
+  peerDict :: p -> M.Map String BEncodedT
+  peerId :: p -> SHA1.Word160
+  peerId p =  
+    let is = stringValue  $ (M.!) (peerDict p) "peer id"
+    in ws_w160 $ map (fromInteger . toInteger . ord) is
+  peerIp :: p -> String
+  peerIp p = stringValue  $ (M.!) (peerDict p) "ip"
+  peerPort :: p -> Integer
+  peerPort p = integerValue  $ (M.!) (peerDict p) "port"
+
+
+instance TrackerResponse BEncodedT where
+  responseDict = dictMap
 
 -- | Metainfo files are bencoded dictionaries with the following keys:
 class MetaInfo m where
