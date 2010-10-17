@@ -1,22 +1,111 @@
 {-# LANGUAGE TypeFamilies #-}
 
+-- | The BitTorrent Protocol Specification (BEP 3) (Version 11031)
+-- 
+-- BitTorrent is a protocol for distributing files. It identifies content by
+-- URL and is designed to integrate seamlessly with the web. Its advantage
+-- over plain HTTP is that when multiple downloads of the same file happen
+-- concurrently, the downloaders upload to each other, making it possible for 
+-- the file source to support very large numbers of downloaders with only a 
+-- modest increase in its load.
 module Network.Bittorrent.Bep003 
-       ( BEncodedT(..) ) where
+       ( BEncodedT(..), MetaInfo(..), MetaInfoFile(..) ) where
 
-import Data.Char (isDigit)
+import Network.URI
+import Data.Maybe (fromJust)
+import Data.Char (isDigit, ord)
 import Data.List (sortBy)
+import Data.Word
+import Data.Bits
+import qualified Data.Digest.SHA1 as SHA1
+import qualified Data.Map as M 
 import Text.ParserCombinators.ReadP
  
 import System.IO
 
-readTorrentFile = do
+t = do
   h <- openBinaryFile "/home/alios/Downloads/t.torrent" ReadMode
   i <- hGetContents h
   let ret :: BEncodedT
       ret = read i
-  print $ i
+  print $ metaInfoPieces ret
   hClose h
 
+-- | Metainfo files are bencoded dictionaries with the following keys:
+class MetaInfo m where
+  metaDict :: m -> M.Map String BEncodedT
+  -- | The URL of the tracker.
+  metaAnnounce :: m -> URI 
+  metaAnnounce m = 
+    let uriStr = stringValue $ (M.!) (metaDict m) "announce"
+    in fromJust $ parseURI uriStr
+  -- | This maps to a dictionary, with keys described below
+  metaInfo :: m -> M.Map String BEncodedT
+  metaInfo m = dictMap $ (M.!) (metaDict m) "info"
+  -- | The name key maps to a UTF-8 encoded string which is the suggested 
+  -- name to save the file (or directory) as. It is purely advisory.
+  metaInfoName :: m -> String
+  metaInfoName m = utf8StringValue $ (M.!) (metaInfo m) "name"
+  -- | opiece length maps to the number of bytes in each piece the file is 
+  -- split into. For the purposes of transfer, files are split into fixed-size 
+  -- pieces which are all the same length except for possibly the last one 
+  -- which may be truncated. piece length is almost always a power of two, 
+  -- most commonly 2 18 = 256 K 
+  -- (BitTorrent prior to version 3.2 uses 2 20 = 1 M as default). 
+  metaInfoPieceInfo :: m -> Integer
+  metaInfoPieceInfo m = integerValue $ (M.!) (metaInfo m) "piece length"
+  -- | pieces maps to a string whose length is a multiple of 20. It is to be 
+  -- subdivided into strings of length 20, each of which is the SHA1 hash of 
+  -- the piece at the corresponding index.
+  metaInfoPieces :: m -> [SHA1.Word160]
+  metaInfoPieces m =
+    let ps = stringValue $ (M.!) (metaInfo m) "pieces"
+        ps' :: [Word8]
+        ps' = map (fromInteger . toInteger . ord) ps
+    in map ws_w160 $ split20 ps'
+       
+  -- | There is also a key length or a key files, but not both or neither. If 
+  -- length is present then the download represents a single file, otherwise 
+  -- it represents a set of files which go in a directory structure.
+  --
+  -- In the single file case, length maps to the length of the file in bytes.
+  metaInfoLength :: m -> Integer
+  metaInfoLength m = integerValue $ (M.!) (metaInfo m) "length"
+  -- | For the purposes of the other keys, the multi-file case is treated as 
+  -- only having a single file by concatenating the files in the order they 
+  -- appear in the files list. The files list is the value files maps to, and 
+  -- is a list of dictionaries containing the following keys:
+  metaInfoFiles ::  m -> [BEncodedT]
+  metaInfoFiles m = listValue $ (M.!) (metaInfo m) "files"  
+  -- | returns True in case of a single file and False in case of multiple
+  -- files
+  metaInfoIsSingleFile :: m -> Bool
+  metaInfoIsSingleFile m = M.member "length" (metaInfo m)  
+  
+class MetaInfoFile m where    
+  metaInfoFileDict :: m -> M.Map String BEncodedT
+  -- | length - The length of the file, in bytes.
+  metaInfoFileLength :: m -> Integer
+  metaInfoFileLength m = integerValue $ (M.!) (metaInfoFileDict m) "name"
+  -- | path - A list of UTF-8 encoded strings corresponding to subdirectory 
+  -- names, the last of which is the actual file name (a zero length list is 
+  -- an error case).
+  metaInfoFilePath :: m -> String
+  metaInfoFilePath m = utf8StringValue $ (M.!) (metaInfoFileDict m) "name"
+  
+instance MetaInfoFile BEncodedT where
+  metaInfoFileDict = dictMap
+
+split20 :: [a] -> [[a]]
+split20 [] = []
+split20 as = 
+  let (x, xs) = splitAt 20 as
+  in x : split20 xs
+
+instance MetaInfo BEncodedT where
+  metaDict = dictMap
+   
+    
 data BEncodedT = 
   -- | Strings are length-prefixed base ten followed by a colon and the string.
   -- For example 4:spam corresponds to 'spam'.  
@@ -53,9 +142,13 @@ instance Read BEncodedT where
   readsPrec _ = readP_to_S parseBEncoded
 
 stringValue (BString s) = s
+utf8StringValue = stringValue
+
 integerValue (BInteger i) = i
 listValue (BList l) = l
 dictValue (BDict d) = d
+dictMap = M.fromList . dictValue
+
 
 parseBEncoded = parseBString <++ parseBInteger <++ parseBList <++ parseBDict
 
@@ -105,3 +198,25 @@ parseBDict = do
 
 sortBDict (BDict d) = BDict $ sortBy dictSort d
   where dictSort (k1,_) (k2,_) = compare k1 k2
+
+
+ws_w160 :: [Word8] -> SHA1.Word160
+ws_w160 ws = 
+  let a = w8_w32 (ws !! 0) (ws !! 1) (ws !! 2) (ws !! 3)
+      b = w8_w32 (ws !! 4) (ws !! 5) (ws !! 6) (ws !! 7)
+      c = w8_w32 (ws !! 8) (ws !! 9) (ws !! 10) (ws !! 11) 
+      d = w8_w32 (ws !! 12) (ws !! 13) (ws !! 14) (ws !! 15)
+      e = w8_w32 (ws !! 16) (ws !! 17) (ws !! 18) (ws !! 19)
+  in SHA1.Word160 a b c d e
+
+w8_w32 :: Word8 -> Word8 -> Word8 -> Word8 -> Word32
+w8_w32 a b c d =
+  let a' :: Word32
+      a' = (fromInteger $ toInteger a)
+      b' :: Word32
+      b' = (fromInteger $ toInteger b)
+      c' :: Word32
+      c' = (fromInteger $ toInteger c)
+      d' :: Word32
+      d' = (fromInteger $ toInteger d)
+  in a' .|. (b' `shiftL` 1) .|. (c' `shiftL` 2) .|. (d' `shiftL` 3)
