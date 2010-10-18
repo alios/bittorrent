@@ -9,8 +9,9 @@
 -- the file source to support very large numbers of downloaders with only a 
 -- modest increase in its load.
 module Network.Bittorrent.Bep003 
-       ( BEncodedT(..), MetaInfo(..), MetaInfoFile(..) 
-       , TrackerResponse(..), Peer(..) ) where
+       ( BEncodedT(..), mkBString, MetaInfo(..), MetaInfoFile(..) 
+       , TrackerResponse(..), Peer(..) 
+       , createTorrent) where
 
 import Data.Binary
 import Data.Binary.Get
@@ -385,7 +386,7 @@ getInteger = do
 defaultPieceLength :: Integer
 defaultPieceLength = 2 ^ 18
 
---createTorrent :: FilePath -> URI -> IO BEncodedT
+createTorrent :: FilePath -> URI -> Integer -> IO BEncodedT
 createTorrent fp ann plen = do
   isDir  <- doesDirectoryExist fp
   isFile <- doesFileExist fp
