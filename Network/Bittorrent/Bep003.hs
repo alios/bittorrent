@@ -11,7 +11,7 @@
 module Network.Bittorrent.Bep003 
        ( BEncodedT(..), mkBString, MetaInfo(..), MetaInfoFile(..) 
        , TrackerResponse(..), Peer(..) 
-       , createTorrent) where
+       , defaultPieceLength, createTorrent) where
 
 import Data.Binary
 import Data.Binary.Get
@@ -383,9 +383,15 @@ getInteger = do
   ds <- fmap (map w2c) $ getWhileC isDigit
   return $ read (d:ds)
 
+
+-- | the default piece length for torrent (2 ^ 18) bytes
 defaultPieceLength :: Integer
 defaultPieceLength = 2 ^ 18
 
+
+-- | creates a torrent of 'fp'. 'fp' can point to a single file or a
+-- directory. 'ann' is the URL to the tracker and 'plen' specifies the
+-- piece length within the torrent. Use 'defaultPieceLength' if unsure.
 createTorrent :: FilePath -> URI -> Integer -> IO BEncodedT
 createTorrent fp ann plen = do
   isDir  <- doesDirectoryExist fp
