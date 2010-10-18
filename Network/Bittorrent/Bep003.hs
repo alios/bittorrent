@@ -19,6 +19,7 @@ import Data.Char
 import Data.Word
 import Data.Bits
 import Data.Maybe
+import Data.List
 import Network.URI
 import Data.Encoding
 import Data.Encoding.UTF8
@@ -36,7 +37,7 @@ import Foreign.Storable
 
 
 t = do
-  to <- ((decodeFile "/tmp/foo.torrent") :: IO BEncodedT)
+  to <- ((decodeFile "/tmp/642334.torrent") :: IO BEncodedT)
   print $ metaInfoName to
   encodeFile "/tmp/foo1.torrent" to
   
@@ -300,6 +301,7 @@ putBEncodedT (BList l) = do
   flush
   
 putBEncodedT (BDict d) = do 
+  let d' = sortBy (\(k1,_) (k2,_) -> compare k1 k2) d
   putWord8 $ c2w 'd'
   sequence $ map putBDictPair d
   putWord8 $ c2w 'e'
