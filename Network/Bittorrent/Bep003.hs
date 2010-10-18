@@ -36,10 +36,6 @@ import Foreign.Marshal
 import Foreign.Storable
 
 
-t = do
-  to <- ((decodeFile "/tmp/642334.torrent") :: IO BEncodedT)
-  print $ metaInfoName to
-  encodeFile "/tmp/foo1.torrent" to
   
 
 class TrackerResponse r where
@@ -95,14 +91,14 @@ class MetaInfo m where
   -- name to save the file (or directory) as. It is purely advisory.
   metaInfoName :: m -> String
   metaInfoName m = utf8StringValue $ (M.!) (metaInfo m) "name"
-  -- | opiece length maps to the number of bytes in each piece the file is 
+  -- | piece length maps to the number of bytes in each piece the file is 
   -- split into. For the purposes of transfer, files are split into fixed-size 
   -- pieces which are all the same length except for possibly the last one 
   -- which may be truncated. piece length is almost always a power of two, 
   -- most commonly 2 18 = 256 K 
   -- (BitTorrent prior to version 3.2 uses 2 20 = 1 M as default). 
-  metaInfoPieceInfo :: m -> Integer
-  metaInfoPieceInfo m = integerValue $ (M.!) (metaInfo m) "piece length"
+  metaInfoPieceLength :: m -> Integer
+  metaInfoPieceLength m = integerValue $ (M.!) (metaInfo m) "piece length"
   -- | pieces maps to a string whose length is a multiple of 20. It is to be 
   -- subdivided into strings of length 20, each of which is the SHA1 hash of 
   -- the piece at the corresponding index.
@@ -186,6 +182,9 @@ instance Binary BEncodedT where
   put = putBEncodedT
   
 
+mkBString :: String -> BEncodedT
+mkBString s = BString $ BS.unpack  $ encodeLazyByteString UTF8 s
+
 getBString :: Get BEncodedT
 getBString = do
   len <- fmap fromInteger getInteger
@@ -238,9 +237,22 @@ w8_w32 a b c d =
       c' = (fromInteger $ toInteger c)
       d' :: Word32
       d' = (fromInteger $ toInteger d)
-  in a' .|. (b' `shiftL` 1) .|. (c' `shiftL` 2) .|. (d' `shiftL` 3)
+  in a' .|. (b' `shiftL` 8) .|. (c' `shiftL` 16) .|. (d' `shiftL` 24)
 
 
+w160_w32 :: SHA1.Word160 -> [Word32]
+w160_w32 (SHA1.Word160 a b c d e) = [a, b, c, d, e]
+
+w32_w8 :: Word32 -> [Word8]
+w32_w8 w =
+  let a = fromInteger.toInteger $ w .&. 0xff
+      b = fromInteger.toInteger $ (w `shiftR` 8) .&. 0xff
+      c = fromInteger.toInteger $ (w `shiftR` 16) .&. 0xff
+      d = fromInteger.toInteger $ (w `shiftR` 24) .&. 0xff
+  in [a, b, c, d]
+     
+w160_w8 :: SHA1.Word160 -> [Word8]
+w160_w8 w =  concat $ map w32_w8 $ w160_w32 w
 
 getBList :: Get BEncodedT
 getBList = do
@@ -370,37 +382,57 @@ getInteger = do
   ds <- fmap (map w2c) $ getWhileC isDigit
   return $ read (d:ds)
 
-
+defaultPieceLength :: Integer
 defaultPieceLength = 2 ^ 18
 
 --createTorrent :: FilePath -> URI -> IO BEncodedT
-createTorrent fp announce = do
+createTorrent fp ann plen = do
   isDir  <- doesDirectoryExist fp
   isFile <- doesFileExist fp
-  let name = takeFileName fp
+  let fileName = takeFileName fp
   let pieceLength = defaultPieceLength
-      
-
+  let announce = mkBString $ show ann
+  let infoPieceLength = BInteger plen
   if (isFile) then do
+    let infoName = mkBString fileName   
     h <- openFile fp ReadMode
-    hSetBuffering h (BlockBuffering (Just pieceLength))
+    hSetBuffering h (BlockBuffering (Just $ fromInteger plen))
     size <- hFileSize h
     pieces <- readPieces h pieceLength
     hClose h
-    return $ map SHA1.hash pieces
+    let infoPieces = concat $ map w160_w8 $ map SHA1.hash pieces
+    return $ BDict [ ("announce", announce)
+                   , ("info", BDict [ ("name", infoName) 
+                                    , ("piece length", infoPieceLength)
+                                    , ("pieces", BString infoPieces)
+                                    , ("length", BInteger size)
+                                    ])
+                   ]
+                              
     else do
     print "dirs are not implemented yet"
-    return []
+    return $ mkBString "not implemented"
 
 
-readPieces :: Handle -> Int -> IO [[Word8]]
+readPieces :: Handle -> Integer -> IO [[Word8]]
 readPieces h l = do
-  ptrbuf <- mallocBytes l
-  l' <- hGetBuf h ptrbuf l
+  ptrbuf <- mallocBytes (fromInteger l)
+  l' <- hGetBuf h ptrbuf (fromInteger l)
   buf <- peekArray l' ptrbuf
   free ptrbuf
-  if (l' == l) then do
+  if (l' == (fromInteger l)) then do
     bufs <- readPieces h l
     return $ buf : bufs 
     else do
     return [buf]
+    
+    
+    
+t = do
+  to <- ((decodeFile "/tmp/642334.torrent") :: IO BEncodedT)
+  print $ metaInfoName to
+  encodeFile "/tmp/foo1.torrent" to
+  
+  t <- createTorrent "/tftpboot" nullURI defaultPieceLength
+  print $ show t
+  
