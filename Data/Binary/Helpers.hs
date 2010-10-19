@@ -92,7 +92,7 @@ w32_w8 w =
       b = fromInteger.toInteger $ (w `shiftR` 8) .&. 0xff
       c = fromInteger.toInteger $ (w `shiftR` 16) .&. 0xff
       d = fromInteger.toInteger $ (w `shiftR` 24) .&. 0xff
-  in [a, b, c, d]
+  in [d, c, b, a]
      
 w160_w8 :: SHA1.Word160 -> [Word8]
 w160_w8 w =  concat $ map w32_w8 $ w160_w32 w
