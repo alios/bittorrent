@@ -7,29 +7,23 @@
 -- the file source to support very large numbers of downloaders with only a 
 -- modest increase in its load.
 module Network.Bittorrent.Bep003 ( BEncodedT(..),
-  MetaInfo(..), MetaInfoFile(..), TrackerResponse(..), Peer(..) ) where 
+  MetaInfo(..), MetaInfoFile(..), TrackerResponse(..), Peer(..), 
+  createTorrent) where 
 
 import Network.Bittorrent.Bep003.BEncodedT
 
-import System.IO
-import System.Directory
-import System.FilePath.Posix
-import Foreign.Marshal
-import Foreign.Storable
-
-import Data.Binary.Helpers
-import qualified Data.Digest.SHA1 as SHA1
-import qualified Data.ByteString.Lazy as BS 
-
 import Data.Binary
+import Data.Binary.Helpers
 import Data.Char
 import Data.Maybe
-import Network.URI  
 import Data.Word
-
+import Network.URI  
+import System.Directory
+import System.FilePath.Posix
+import qualified Data.ByteString.Lazy as BS 
+import qualified Data.Digest.SHA1 as SHA1
 import qualified Data.Map as M
   
-
 class TrackerResponse r where
   -- | Tracker responses are bencoded dictionaries.   
   responseDict :: r -> M.Map String BEncodedT
@@ -119,6 +113,9 @@ class MetaInfo m where
   metaInfoIsSingleFile :: m -> Bool
   metaInfoIsSingleFile m = M.member "length" (metaInfo m)  
   
+instance MetaInfo BEncodedT where
+  metaDict = dictMap
+
 class MetaInfoFile m where    
   metaInfoFileDict :: m -> M.Map String BEncodedT
   -- | length - The length of the file, in bytes.
@@ -133,112 +130,106 @@ class MetaInfoFile m where
 instance MetaInfoFile BEncodedT where
   metaInfoFileDict = dictMap
 
-split20 :: [a] -> [[a]]
-split20 [] = []
-split20 as = 
-  let (x, xs) = splitAt 20 as
-  in x : split20 xs
-
-instance MetaInfo BEncodedT where
-  metaDict = dictMap
-
-
-
-
-
 -- | the default piece length for torrent (2 ^ 18) bytes
 defaultPieceLength :: Integer
 defaultPieceLength = 2 ^ 18
-
 
 -- | creates a torrent of 'fp'. 'fp' can point to a single file or a
 -- directory. 'ann' is the URL to the tracker and 'plen' specifies the
 -- piece length within the torrent. Use 'defaultPieceLength' if unsure.
 createTorrent :: FilePath -> URI -> Integer -> IO BEncodedT
 createTorrent fp ann plen = do
-  isDir  <- doesDirectoryExist fp
-  isFile <- doesFileExist fp
-  let fileName = takeFileName fp
   let announce = mkBString $ show ann
   let infoPieceLength = BInteger plen
-      
-  ts <- fileTorrent fp
-  
-  
-  if (isFile) then do
-    let infoName = mkBString fileName   
-    h <- openFile fp ReadMode
-    hSetBuffering h (BlockBuffering (Just $ fromInteger plen))
-    size <- hFileSize h
-    pieces <- readPieces h plen
-    hClose h
-    let infoPieces = concat $ map w160_w8 $ map SHA1.hash pieces
-    return $ BDict [ ("announce", announce)
-                   , ("info", BDict [ ("name", infoName) 
-                                    , ("piece length", infoPieceLength)
-                                    , ("pieces", BString infoPieces)
-                                    , ("length", BInteger size)
-                                    ])
-                   ]
-                              
-    else do
-    print "dirs are not implemented yet"
-    return $ mkBString "not implemented"
+  (name, fs) <- fileTorrent fp   
+  let fullbuf = BS.concat $ map snd fs
+  let pieces = splitPieces plen fullbuf
+  let hashes = map (SHA1.hash.BS.unpack) pieces
+  let infoPieces = concat $ map w160_w8 hashes
+  let files = map (\(fp, bs) -> BDict [("length",BInteger $ toInteger $
+                                                 BS.length bs)
+                                       ,("path",mkBString fp)]) fs
+  case (length fs) of
+    0 -> error $ "createTorrent: got a fs of length 0 for " ++ fp
+    1 -> return $ 
+         BDict [ ("announce", announce)
+               , ("info", BDict [ ("name", mkBString name) 
+                                , ("piece length", infoPieceLength)
+                                , ("pieces", BString infoPieces)
+                                , ("length", BInteger $ toInteger $ 
+                                             BS.length fullbuf )
+                                ])
+               ]
+    otherwise -> return $ 
+         BDict [ ("announce", announce)
+               , ("info", BDict [ ("name", mkBString name) 
+                                , ("piece length", infoPieceLength)
+                                , ("pieces", BString infoPieces)
+                                , ("files", BList files)
+                                ])
+               ]
+
+fileTorrent :: FilePath -> IO (String ,[(FilePath, BS.ByteString)])            
+fileTorrent f' = do      
+  let f = dropTrailingPathSeparator $ normalise f'
+  (name, root) <- splitFileDir f
+  fs <- fileTorrent' root f
+  return (name, fs)
+  where fileTorrent' r f = do
+          let filename = takeFileName f
+          isdir  <- doesDirectoryExist f      
+          if (isdir) then 
+            do cs <- fmap (filter $ (\x -> not $ x == "." ||  x == "..")) $ 
+                     getDirectoryContents f
+               let filenames = map (combine f) cs
+               fmap concat $ sequence $ map (fileTorrent' r) filenames
+              else do bs <- BS.readFile f            
+                      return [(makeRelative r f, bs)]
+
+splitFileDir :: FilePath -> IO (String, FilePath)
+splitFileDir f' = do
+  let f = dropTrailingPathSeparator $ normalise f'
+  isdir <- doesDirectoryExist f
+  isfile <- doesFileExist f
+  let filename = takeFileName f
+  let dirname = takeDirectory f
+  if (isdir)
+    then return (filename, f)
+    else if (isfile) 
+         then return (filename, dirname)
+         else fail $ "splitFileDir: " ++ f 
+              ++ " is neither a file, nor a directory"
+
+split20 :: [a] -> [[a]]
+split20 [] = []
+split20 as = 
+  let (x, xs) = splitAt 20 as
+  in x : split20 xs
+
+splitPieces :: Integer -> BS.ByteString -> [BS.ByteString]
+splitPieces n s = 
+  let (p,ps) = BS.splitAt (fromInteger n) s
+  in if (s == BS.empty)
+     then []
+     else p : splitPieces n ps
+
+{-
 
 
-readPieces :: Handle -> Integer -> IO [[Word8]]
-readPieces h l = do
-  ptrbuf <- mallocBytes (fromInteger l)
-  l' <- hGetBuf h ptrbuf (fromInteger l)
-  buf <- peekArray l' ptrbuf
-  free ptrbuf
-  if (l' == (fromInteger l)) then do
-    bufs <- readPieces h l
-    return $ buf : bufs 
-    else do
-    return [buf]
+fd = "/home/alios/src/bittorrent"
+ff = "/tftpboot"
 
-f = "/home/alios/src/bittorrent"
+turi = fromJust $ parseURI "http://www.google.de"
 
 t = do
-  to <- ((decodeFile "/tmp/642334.torrent") :: IO BEncodedT)
-  print $ metaInfoName to
-  encodeFile "/tmp/foo1.torrent" to
   
-  t <- createTorrent "/tftpboot" nullURI defaultPieceLength
-  print $ show t
+  td <- createTorrent fd turi defaultPieceLength
+  tf <- createTorrent ff turi defaultPieceLength
+  encodeFile "/tmp/a.torrent" td
+  encodeFile "/tmp/b.torrent" tf
+  c <- decodeFile "/tmp/b.torrent"
+  encodeFile "/tmp/c.torrent" c
   
+  print $ c == tf
 
-
-fileTorrent :: FilePath -> 
-               IO (Either (String ,[(FilePath, BS.ByteString)]) 
-                          (String, FilePath, BS.ByteString))
-               
-fileTorrent f = do
-  curd <- getCurrentDirectory
-  isdir  <- doesDirectoryExist f
-  
-  if (isdir) 
-    then setCurrentDirectory $ f
-    else setCurrentDirectory $ takeDirectory f
-  
-  root <- getCurrentDirectory
-  fs <- fileTorrent' root f
-  setCurrentDirectory curd
-  
-  if (isdir)
-     then return $ Left (takeDirectory root, fs)
-     else return $ Right (takeFileName f, f, snd $ fs !! 0)
-  
-fileTorrent' r f = do
-  let filename = takeFileName f
-  isfile <- doesFileExist f
-  isdir  <- doesDirectoryExist f
-      
-  if (isdir)
-    then do cs <- fmap (filter $ (\x -> not $ x == "." ||  x == "..")) $ 
-                  getDirectoryContents f
-            let filenames = map (combine f) cs
-            fmap concat $ sequence $ map (fileTorrent' r) filenames
-    else do bs <- BS.readFile f            
-            return [(makeRelative r f, bs)]
+-}
