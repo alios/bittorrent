@@ -1,5 +1,3 @@
-{-# LANGUAGE TypeFamilies #-}
-
 -- | The BitTorrent Protocol Specification (BEP 3) (Version 11031)
 -- 
 -- BitTorrent is a protocol for distributing files. It identifies content by
@@ -8,27 +6,10 @@
 -- concurrently, the downloaders upload to each other, making it possible for 
 -- the file source to support very large numbers of downloaders with only a 
 -- modest increase in its load.
-module Network.Bittorrent.Bep003 
-       ( BEncodedT(..), mkBString, MetaInfo(..), MetaInfoFile(..) 
-       , TrackerResponse(..), Peer(..) 
-       , defaultPieceLength, createTorrent) where
+module Network.Bittorrent.Bep003 ( BEncodedT(..),
+  MetaInfo(..), MetaInfoFile(..), TrackerResponse(..), Peer(..) ) where 
 
-import Data.Binary
-import Data.Binary.Get
-import Data.Binary.Put
-import Data.Char
-import Data.Word
-import Data.Bits
-import Data.Maybe
-import Data.List
-import Network.URI
-import Data.Encoding
-import Data.Encoding.UTF8
-import Data.Encoding.ASCII
-import Data.ByteString.Internal(w2c, c2w)
-import qualified Data.Digest.SHA1 as SHA1
-import qualified Data.ByteString.Lazy as BS 
-import qualified Data.Map as M
+import Network.Bittorrent.Bep003.BEncodedT
 
 import System.IO
 import System.Directory
@@ -36,7 +17,17 @@ import System.FilePath.Posix
 import Foreign.Marshal
 import Foreign.Storable
 
+import Data.Binary.Helpers
+import qualified Data.Digest.SHA1 as SHA1
+import qualified Data.ByteString.Lazy as BS 
 
+import Data.Binary
+import Data.Char
+import Data.Maybe
+import Network.URI  
+import Data.Word
+
+import qualified Data.Map as M
   
 
 class TrackerResponse r where
@@ -153,235 +144,6 @@ instance MetaInfo BEncodedT where
 
 
 
-data BEncodedT = 
-  -- | Strings are length-prefixed base ten followed by a colon and the string.
-  -- For example 4:spam corresponds to 'spam'.  
-  BString [Word8]
-               
-  -- | Integers are represented by an 'i' followed by the number in base 10 
-  -- followed by an 'e'. For example i3e corresponds to 3 and i-3e corresponds 
-  -- to -3. Integers have no size limitation. i-0e is invalid. All encodings 
-  -- with a leading zero, such as i03e, are invalid, other than i0e, which of 
-  -- course corresponds to 0.   
-  | BInteger Integer
-               
-  -- | Lists are encoded as an 'l' followed by their elements (also bencoded)
-  -- followed by an 'e'. 
-  -- For example l4:spam4:eggse corresponds to ['spam', 'eggs'].  
-  | BList [ BEncodedT ]
-               
-  -- | Dictionaries are encoded as a 'd' followed by a list of alternating keys
-  -- and their corresponding values followed by an 'e'. For example, 
-  -- d3:cow3:moo4:spam4:eggse corresponds to {'cow': 'moo', 'spam': 'eggs'} and 
-  -- d4:spaml1:a1:bee corresponds to {'spam': ['a', 'b']}. Keys must be strings 
-  -- and appear in sorted order (sorted as raw strings, not alphanumerics).  
-  | BDict [ (String, BEncodedT) ]
-  deriving (Eq, Ord, Show, Read)
-
-instance Binary BEncodedT where
-  get = getBEncodedT
-  put = putBEncodedT
-  
-
-mkBString :: String -> BEncodedT
-mkBString s = BString $ BS.unpack  $ encodeLazyByteString UTF8 s
-
-getBString :: Get BEncodedT
-getBString = do
-  len <- fmap fromInteger getInteger
-  getchar ':'
-  str <- getLazyByteString len
-  return $ BString $ BS.unpack $ str
-  
-
-decodeE :: (Encoding enc) => enc -> [Word8] -> String 
-decodeE enc ws = decodeLazyByteString enc $ BS.pack ws
-
-isPositivDigit d = (d /= '0') && (isDigit d)
-
-getBInteger :: Get BEncodedT
-getBInteger = do
-  getchar 'i'
-  c1 <- getPredC $ (\c -> isDigit c || c == '-')
-  d <- case (w2c c1) of
-    '-' -> do c2 <- getPredC isPositivDigit
-              cs <- getWhileC isDigit
-              return $ BInteger $ read $ decodeE ASCII (c1 : c2 : cs)
-    '0' -> return $ BInteger 0
-    otherwise -> do cs <- getWhileC isDigit
-                    return $ BInteger $ read $ decodeE ASCII (c1 : cs)
-  getchar 'e'
-  return d
-
-utf8StringValue (BString s) = decodeLazyByteString UTF8 (BS.pack s)
-integerValue (BInteger i) = i
-listValue (BList l) = l
-dictValue (BDict d) = d
-dictMap = M.fromList . dictValue
-
-ws_w160 :: [Word8] -> SHA1.Word160
-ws_w160 ws = 
-  let a = w8_w32 (ws !! 0) (ws !! 1) (ws !! 2) (ws !! 3)
-      b = w8_w32 (ws !! 4) (ws !! 5) (ws !! 6) (ws !! 7)
-      c = w8_w32 (ws !! 8) (ws !! 9) (ws !! 10) (ws !! 11) 
-      d = w8_w32 (ws !! 12) (ws !! 13) (ws !! 14) (ws !! 15)
-      e = w8_w32 (ws !! 16) (ws !! 17) (ws !! 18) (ws !! 19)
-  in SHA1.Word160 a b c d e
-
-w8_w32 :: Word8 -> Word8 -> Word8 -> Word8 -> Word32
-w8_w32 a b c d =
-  let a' :: Word32
-      a' = (fromInteger $ toInteger a)
-      b' :: Word32
-      b' = (fromInteger $ toInteger b)
-      c' :: Word32
-      c' = (fromInteger $ toInteger c)
-      d' :: Word32
-      d' = (fromInteger $ toInteger d)
-  in a' .|. (b' `shiftL` 8) .|. (c' `shiftL` 16) .|. (d' `shiftL` 24)
-
-
-w160_w32 :: SHA1.Word160 -> [Word32]
-w160_w32 (SHA1.Word160 a b c d e) = [a, b, c, d, e]
-
-w32_w8 :: Word32 -> [Word8]
-w32_w8 w =
-  let a = fromInteger.toInteger $ w .&. 0xff
-      b = fromInteger.toInteger $ (w `shiftR` 8) .&. 0xff
-      c = fromInteger.toInteger $ (w `shiftR` 16) .&. 0xff
-      d = fromInteger.toInteger $ (w `shiftR` 24) .&. 0xff
-  in [a, b, c, d]
-     
-w160_w8 :: SHA1.Word160 -> [Word8]
-w160_w8 w =  concat $ map w32_w8 $ w160_w32 w
-
-getBList :: Get BEncodedT
-getBList = do
-  getchar 'l'
-  bs <- manyTill getBEncodedT (c2w 'e')
-  getchar 'e'
-  return $ BList bs
-
-getBDictPair :: Get (String, BEncodedT)
-getBDictPair = do
-  k <- fmap utf8StringValue getBString
-  v <- getBEncodedT
-  return (k, v)
-  
-getBDict :: Get BEncodedT
-getBDict = do
-  getchar 'd'
-  dict <- manyTill getBDictPair (c2w 'e')
-  getchar 'e'
-  return $ BDict dict
-  
-getBEncodedT :: Get BEncodedT
-getBEncodedT = do
-  t <- fmap w2c $ lookAhead getWord8
-  if (isDigit t) 
-    then getBString
-    else if (t == 'i')
-         then getBInteger
-         else if (t == 'l')
-              then getBList
-              else if (t == 'd')
-                   then getBDict
-                   else fail $ 
-                        "getBEncoded: expected digit,'i','l' or 'd', read '" 
-                        ++ show t ++ "'"
-                        
-putBEncodedT :: BEncodedT -> Put
-putBEncodedT (BString s) = do
-  putLazyByteString $ 
-    BS.concat [ encodeLazyByteString ASCII $ show $ length s
-              , BS.singleton $ c2w ':'
-              , BS.pack s 
-              ]
-  flush
-    
-putBEncodedT (BInteger i) = do
-  putLazyByteString $ 
-    BS.concat [ BS.singleton $ c2w 'i'
-              , encodeLazyByteString ASCII $ show i
-              , BS.singleton $ c2w 'e'
-              ]
-  flush
-  
-putBEncodedT (BList l) = do
-  putWord8 $ c2w 'l'
-  sequence $ map putBEncodedT l
-  putWord8 $ c2w 'e'
-  flush
-  
-putBEncodedT (BDict d) = do 
-  let d' = sortBy (\(k1,_) (k2,_) -> compare k1 k2) d
-  putWord8 $ c2w 'd'
-  sequence $ map putBDictPair d
-  putWord8 $ c2w 'e'
-  flush
-  
-putBDictPair :: (String, BEncodedT) -> Put
-putBDictPair (k,v) = do
-  let kstr = encodeLazyByteString UTF8 k
-  putLazyByteString $ 
-    BS.concat [ encodeLazyByteString ASCII $ show $ BS.length kstr
-              , BS.singleton $ c2w ':'
-              , kstr
-              ]
-  putBEncodedT v
-  
-
-getWhile :: (Word8 -> Bool) -> Get [Word8]
-getWhile p = do
-  b <- lookAhead getWord8
-  if (p b) 
-    then do skip 1
-            bs <- getWhile p 
-            return $ b : bs
-    else return []
-    
-manyTill :: Get a -> Word8 -> Get [a]
-manyTill g p = do
-  nxt <- lookAhead getWord8
-  if (nxt == p)
-    then return []
-    else do r <- g
-            rs <- manyTill g p
-            return $ r : rs
-            
-
-getWhileC :: (Char -> Bool) -> Get [Word8]
-getWhileC cp = getWhile $ charPred cp
-
-charPred :: (Char -> Bool) -> (Word8 -> Bool)
-charPred cp = \w -> cp $ w2c w
-
-getPred :: (Word8 -> Bool) -> Get Word8 
-getPred p = do
-  b <- lookAhead getWord8
-  if (p b) 
-    then do skip 1 >> return b
-    else fail $ "getPred: read unexpected '" ++ [w2c b] ++ "'" 
-
-getPredC :: (Char -> Bool) -> Get Word8
-getPredC cp = getPred $ charPred cp
-
-getchar :: Char -> Get Word8 
-getchar c = getPredC ((==) c)
-
-getN :: Get a -> Integer -> Get [a]
-getN g n
-  | n <= 0 = return []
-  | otherwise = do
-    r <- g
-    rs <- getN g (n - 1)
-    return $ r : rs
-
-getInteger :: Get Integer
-getInteger = do
-  d <- fmap w2c $ getPredC (\c -> isDigit c || c == '-')
-  ds <- fmap (map w2c) $ getWhileC isDigit
-  return $ read (d:ds)
 
 
 -- | the default piece length for torrent (2 ^ 18) bytes
@@ -397,15 +159,18 @@ createTorrent fp ann plen = do
   isDir  <- doesDirectoryExist fp
   isFile <- doesFileExist fp
   let fileName = takeFileName fp
-  let pieceLength = defaultPieceLength
   let announce = mkBString $ show ann
   let infoPieceLength = BInteger plen
+      
+  ts <- fileTorrent fp
+  
+  
   if (isFile) then do
     let infoName = mkBString fileName   
     h <- openFile fp ReadMode
     hSetBuffering h (BlockBuffering (Just $ fromInteger plen))
     size <- hFileSize h
-    pieces <- readPieces h pieceLength
+    pieces <- readPieces h plen
     hClose h
     let infoPieces = concat $ map w160_w8 $ map SHA1.hash pieces
     return $ BDict [ ("announce", announce)
@@ -432,9 +197,9 @@ readPieces h l = do
     return $ buf : bufs 
     else do
     return [buf]
-    
-    
-    
+
+f = "/home/alios/src/bittorrent"
+
 t = do
   to <- ((decodeFile "/tmp/642334.torrent") :: IO BEncodedT)
   print $ metaInfoName to
@@ -443,3 +208,37 @@ t = do
   t <- createTorrent "/tftpboot" nullURI defaultPieceLength
   print $ show t
   
+
+
+fileTorrent :: FilePath -> 
+               IO (Either (String ,[(FilePath, BS.ByteString)]) 
+                          (String, FilePath, BS.ByteString))
+               
+fileTorrent f = do
+  curd <- getCurrentDirectory
+  isdir  <- doesDirectoryExist f
+  
+  if (isdir) 
+    then setCurrentDirectory $ f
+    else setCurrentDirectory $ takeDirectory f
+  
+  root <- getCurrentDirectory
+  fs <- fileTorrent' root f
+  setCurrentDirectory curd
+  
+  if (isdir)
+     then return $ Left (takeDirectory root, fs)
+     else return $ Right (takeFileName f, f, snd $ fs !! 0)
+  
+fileTorrent' r f = do
+  let filename = takeFileName f
+  isfile <- doesFileExist f
+  isdir  <- doesDirectoryExist f
+      
+  if (isdir)
+    then do cs <- fmap (filter $ (\x -> not $ x == "." ||  x == "..")) $ 
+                  getDirectoryContents f
+            let filenames = map (combine f) cs
+            fmap concat $ sequence $ map (fileTorrent' r) filenames
+    else do bs <- BS.readFile f            
+            return [(makeRelative r f, bs)]
