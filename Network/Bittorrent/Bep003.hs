@@ -17,6 +17,8 @@ import Data.Binary.Helpers
 import Data.Char
 import Data.Maybe
 import Data.Word
+import Network.BSD
+import Network.Socket
 import Network.URI  
 import System.Directory
 import System.FilePath.Posix
@@ -54,10 +56,11 @@ class Peer p where
   peerId p =  
     let is = utf8StringValue  $ (M.!) (peerDict p) "peer id"
     in ws_w160 $ map (fromInteger . toInteger . ord) is
-  peerIp :: p -> String
+  peerIp :: p -> HostName
   peerIp p = utf8StringValue  $ (M.!) (peerDict p) "ip"
-  peerPort :: p -> Integer
-  peerPort p = integerValue  $ (M.!) (peerDict p) "port"
+  peerPort :: p -> PortNumber
+  peerPort p = PortNum $ fromInteger  $ 
+               integerValue  $ (M.!) (peerDict p) "port"
 
 instance Peer BEncodedT where
   peerDict = dictMap
