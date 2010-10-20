@@ -39,9 +39,18 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 -- concurrently, the downloaders upload to each other, making it possible for 
 -- the file source to support very large numbers of downloaders with only a 
 -- modest increase in its load.
-module Network.Bittorrent.Bep003 ( BEncodedT(..),
-  MetaInfo(..), MetaInfoFile(..), TrackerResponse(..), Peer(..), 
-  createTorrent, verifyTorrent) where 
+module Network.Bittorrent.Bep003 
+       ( module Network.Bittorrent.Bep003.BEncodedT,
+         MetaInfo(..), 
+         MetaInfoFile(..), 
+         TrackerResponse(..), 
+         Peer(..),
+         createTorrent, 
+         verifyTorrent,
+         pieceLength,
+         defaultPiecePower,
+         defaultPieceLength) where 
+
 
 import Network.Bittorrent.Bep003.BEncodedT
 
@@ -202,9 +211,17 @@ piecesZip as bs =
         | otherwise = i : piecesZip' as bs (i+1)
   in piecesZip' as bs 0
 
--- | the default piece length for torrent (2 ^ 18) bytes
-defaultPieceLength :: Integer
-defaultPieceLength = 2 ^ 18
+
+-- | 2 ^ x
+pieceLength = (^) 2 
+
+-- | defaultPiecePower is 18
+defaultPiecePower = 18
+
+-- | the default piece length is almost always a power of two, 
+-- most commonly 2^18 = 256 K (BitTorrent prior to version 3.2 
+-- uses 2 20 = 1 M as default).
+defaultPieceLength = pieceLength defaultPieceLength
 
 -- | creates a torrent of 'fp'. 'fp' can point to a single file or a
 -- directory. 'ann' is the URL to the tracker and 'plen' specifies the
