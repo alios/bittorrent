@@ -92,12 +92,6 @@ getBString = do
   str <- getLazyByteString len
   return $ BString $ str
   
-
-decodeE :: (Encoding enc) => enc -> [Word8] -> String 
-decodeE enc ws = decodeLazyByteString enc $ BS.pack ws
-
-isPositivDigit d = (d /= '0') && (isDigit d)
-
 getBInteger :: Get BEncodedT
 getBInteger = do
   getchar 'i'
@@ -111,6 +105,9 @@ getBInteger = do
                     return $ BInteger $ read $ decodeE ASCII (c1 : cs)
   getchar 'e'
   return d
+  where decodeE :: (Encoding enc) => enc -> [Word8] -> String 
+        decodeE enc ws = decodeLazyByteString enc $ BS.pack ws
+        isPositivDigit d = (d /= '0') && (isDigit d)
 
 utf8StringValue (BString s) = decodeLazyByteString UTF8 s
 integerValue (BInteger i) = i

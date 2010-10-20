@@ -181,7 +181,7 @@ createTorrent fp ann plen = do
   let fullbuf = BS.concat $ map snd fs
   let pieces = splitPieces plen fullbuf
   let hashes = map (SHA1.hash.BS.unpack) pieces
-  let infoPieces = concat $ map w160_w8 hashes
+  let infoPieces = BS.pack $ concat $ map w160_w8 hashes
   let files = map (\(fp, bs) -> BDict [("length",BInteger $ toInteger $
                                                  BS.length bs)
                                        ,("path",mkBString fp)]) fs
@@ -191,7 +191,7 @@ createTorrent fp ann plen = do
          BDict [ ("announce", announce)
                , ("info", BDict [ ("name", mkBString name) 
                                 , ("piece length", infoPieceLength)
-                                , ("pieces", BString $ BS.pack infoPieces)
+                                , ("pieces", BString $ infoPieces)
                                 , ("length", BInteger $ toInteger $ 
                                              BS.length fullbuf )
                                 ])
@@ -200,7 +200,7 @@ createTorrent fp ann plen = do
          BDict [ ("announce", announce)
                , ("info", BDict [ ("name", mkBString name) 
                                 , ("piece length", infoPieceLength)
-                                , ("pieces", BString $ BS.pack infoPieces)
+                                , ("pieces", BString $ infoPieces)
                                 , ("files", BList files)
                                 ])
                ]
