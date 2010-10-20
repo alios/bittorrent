@@ -191,7 +191,7 @@ createTorrent fp ann plen = do
          BDict [ ("announce", announce)
                , ("info", BDict [ ("name", mkBString name) 
                                 , ("piece length", infoPieceLength)
-                                , ("pieces", BString infoPieces)
+                                , ("pieces", BString $ BS.pack infoPieces)
                                 , ("length", BInteger $ toInteger $ 
                                              BS.length fullbuf )
                                 ])
@@ -200,7 +200,7 @@ createTorrent fp ann plen = do
          BDict [ ("announce", announce)
                , ("info", BDict [ ("name", mkBString name) 
                                 , ("piece length", infoPieceLength)
-                                , ("pieces", BString infoPieces)
+                                , ("pieces", BString $ BS.pack infoPieces)
                                 , ("files", BList files)
                                 ])
                ]
@@ -249,7 +249,7 @@ splitPieces n s =
      then []
      else p : splitPieces n ps
 
-{-
+
 
 
 fd = "/home/alios/src/bittorrent"
@@ -268,4 +268,3 @@ t = do
   
   print $ c == tf
 
--}

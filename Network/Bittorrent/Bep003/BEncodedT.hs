@@ -56,7 +56,7 @@ import Data.Binary.Helpers
 data BEncodedT = 
   -- | Strings are length-prefixed base ten followed by a colon and the string.
   -- For example 4:spam corresponds to 'spam'.  
-  BString [Word8]
+  BString BS.ByteString
                
   -- | Integers are represented by an 'i' followed by the number in base 10 
   -- followed by an 'e'. For example i3e corresponds to 3 and i-3e corresponds 
@@ -83,14 +83,14 @@ instance Binary BEncodedT where
   put = putBEncodedT
     
 mkBString :: String -> BEncodedT
-mkBString s = BString $ BS.unpack  $ encodeLazyByteString UTF8 s
+mkBString s = BString $ encodeLazyByteString UTF8 s
 
 getBString :: Get BEncodedT
 getBString = do
   len <- fmap fromInteger getInteger
   getchar ':'
   str <- getLazyByteString len
-  return $ BString $ BS.unpack $ str
+  return $ BString $ str
   
 
 decodeE :: (Encoding enc) => enc -> [Word8] -> String 
@@ -112,7 +112,7 @@ getBInteger = do
   getchar 'e'
   return d
 
-utf8StringValue (BString s) = decodeLazyByteString UTF8 (BS.pack s)
+utf8StringValue (BString s) = decodeLazyByteString UTF8 s
 integerValue (BInteger i) = i
 listValue (BList l) = l
 dictMap = M.fromList . dictValue
@@ -158,9 +158,9 @@ getBEncodedT = do
 putBEncodedT :: BEncodedT -> Put
 putBEncodedT (BString s) = do
   putLazyByteString $ 
-    BS.concat [ encodeLazyByteString ASCII $ show $ length s
+    BS.concat [ encodeLazyByteString ASCII $ show $ BS.length s
               , BS.singleton $ c2w ':'
-              , BS.pack s 
+              , s 
               ]
   flush
     
