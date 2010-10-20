@@ -41,7 +41,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 -- modest increase in its load.
 module Network.Bittorrent.Bep003 ( BEncodedT(..),
   MetaInfo(..), MetaInfoFile(..), TrackerResponse(..), Peer(..), 
-  createTorrent) where 
+  createTorrent, verifyTorrent) where 
 
 import Network.Bittorrent.Bep003.BEncodedT
 
@@ -165,6 +165,42 @@ class MetaInfoFile m where
   
 instance MetaInfoFile BEncodedT where
   metaInfoFileDict = dictMap
+
+
+-- | check if given file/directory from 'm' exists in filesystem. 
+-- if it exists it returns of a list of indexes to the parts that differ. 
+verifyTorrent :: (MetaInfo m) => m -> FilePath -> IO (Maybe [Integer])
+verifyTorrent m datadir = 
+  let ps = metaInfoPieces m
+      fs = metaInfoFiles m
+      pl = metaInfoPieceLength m
+      name = metaInfoName m
+      ann = metaAnnounce m
+      l = metaInfoLength m 
+      fn = datadir </> name
+  in do 
+    exists <- if (metaInfoIsSingleFile m)
+              then doesFileExist fn
+              else doesDirectoryExist fn 
+
+    if (exists)
+      then do m' <- createTorrent fn ann pl
+              return $ Just $ piecesZip ps (metaInfoPieces m') 
+      else return Nothing
+
+
+-- | pieces Zip takes a two lists an returns a list of indexes of those parts
+-- that differ from 'as' to 'bs'. Elements from 'as' that do not exist in 'bs'
+-- ('length' 'bs' < 'length' 'as') will returned as difference.
+piecesZip :: (Eq a ) => [a] -> [a] -> [Integer]
+piecesZip as bs =
+  let piecesZip' :: (Eq a) => [a] -> [a] -> Integer -> [Integer]
+      piecesZip' [] [] _ = []
+      piecesZip' (a:as) [] i = [ i + i' | i' <- [0 .. toInteger $ length as]]
+      piecesZip' (a:as) (b:bs) i
+        | (a == b)  = piecesZip' as bs (i+1)
+        | otherwise = i : piecesZip' as bs (i+1)
+  in piecesZip' as bs 0
 
 -- | the default piece length for torrent (2 ^ 18) bytes
 defaultPieceLength :: Integer
