@@ -46,7 +46,6 @@ module Network.Bittorrent.Bep003
          TrackerResponse(..), 
          Peer(..),
          createTorrent, 
-         verifyTorrent,
          pieceLength,
          defaultPiecePower,
          defaultPieceLength) where 
@@ -158,6 +157,27 @@ class MetaInfo m where
   metaInfoIsSingleFile :: m -> Bool
   metaInfoIsSingleFile m = M.member "length" (metaInfo m)  
   
+  -- | check if given file/directory from 'm' exists in filesystem. 
+  -- if it exists it returns of a list of indexes to the parts that differ. 
+  verifyTorrent :: m -> FilePath -> IO (Maybe [Integer])
+  verifyTorrent m datadir = 
+    let ps = metaInfoPieces m
+        fs = metaInfoFiles m
+        pl = metaInfoPieceLength m
+        name = metaInfoName m
+        ann = metaAnnounce m
+        l = metaInfoLength m 
+        fn = datadir </> name
+    in do 
+      exists <- if (metaInfoIsSingleFile m)
+                then doesFileExist fn
+                else doesDirectoryExist fn 
+
+      if (exists)
+        then do m' <- createTorrent fn ann pl
+                return $ Just $ piecesZip ps (metaInfoPieces m') 
+        else return Nothing
+
 instance MetaInfo BEncodedT where
   metaDict = dictMap
 
@@ -175,29 +195,6 @@ class MetaInfoFile m where
 instance MetaInfoFile BEncodedT where
   metaInfoFileDict = dictMap
 
-
--- | check if given file/directory from 'm' exists in filesystem. 
--- if it exists it returns of a list of indexes to the parts that differ. 
-verifyTorrent :: (MetaInfo m) => m -> FilePath -> IO (Maybe [Integer])
-verifyTorrent m datadir = 
-  let ps = metaInfoPieces m
-      fs = metaInfoFiles m
-      pl = metaInfoPieceLength m
-      name = metaInfoName m
-      ann = metaAnnounce m
-      l = metaInfoLength m 
-      fn = datadir </> name
-  in do 
-    exists <- if (metaInfoIsSingleFile m)
-              then doesFileExist fn
-              else doesDirectoryExist fn 
-
-    if (exists)
-      then do m' <- createTorrent fn ann pl
-              return $ Just $ piecesZip ps (metaInfoPieces m') 
-      else return Nothing
-
-
 -- | pieces Zip takes a two lists an returns a list of indexes of those parts
 -- that differ from 'as' to 'bs'. Elements from 'as' that do not exist in 'bs'
 -- ('length' 'bs' < 'length' 'as') will returned as difference.
@@ -210,18 +207,6 @@ piecesZip as bs =
         | (a == b)  = piecesZip' as bs (i+1)
         | otherwise = i : piecesZip' as bs (i+1)
   in piecesZip' as bs 0
-
-
--- | 2 ^ x
-pieceLength = (^) 2 
-
--- | defaultPiecePower is 18
-defaultPiecePower = 18
-
--- | the default piece length is almost always a power of two, 
--- most commonly 2^18 = 256 K (BitTorrent prior to version 3.2 
--- uses 2 20 = 1 M as default).
-defaultPieceLength = pieceLength defaultPieceLength
 
 -- | creates a torrent of 'fp'. 'fp' can point to a single file or a
 -- directory. 'ann' is the URL to the tracker and 'plen' specifies the
@@ -237,7 +222,7 @@ createTorrent fp ann plen = do
   let infoPieces = BS.pack $ concat $ map w160_w8 hashes
   let files = map (\(fp, bs) -> BDict [("length",BInteger $ toInteger $
                                                  BS.length bs)
-                                       ,("path",mkBString fp)]) fs
+                                      ,("path",mkBString fp)]) fs
   case (length fs) of
     0 -> error $ "createTorrent: got a fs of length 0 for " ++ fp
     1 -> return $ 
@@ -250,13 +235,26 @@ createTorrent fp ann plen = do
                                 ])
                ]
     otherwise -> return $ 
-         BDict [ ("announce", announce)
-               , ("info", BDict [ ("name", mkBString name) 
-                                , ("piece length", infoPieceLength)
-                                , ("pieces", BString $ infoPieces)
-                                , ("files", BList files)
-                                ])
-               ]
+                 BDict [ ("announce", announce)
+                       , ("info", BDict [ ("name", mkBString name) 
+                                        , ("piece length", infoPieceLength)
+                                        , ("pieces", BString $ infoPieces)
+                                        , ("files", BList files)
+                                        ])
+                       ]
+
+
+-- | 2 ^ x
+pieceLength = (^) 2 
+
+-- | defaultPiecePower is 18
+defaultPiecePower = 18
+
+-- | the default piece length is almost always a power of two, 
+-- most commonly 2^18 = 256 K (BitTorrent prior to version 3.2 
+-- uses 2 20 = 1 M as default).
+defaultPieceLength = pieceLength defaultPieceLength
+
 
 fileTorrent :: FilePath -> IO (String ,[(FilePath, BS.ByteString)])            
 fileTorrent f' = do      
