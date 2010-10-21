@@ -30,7 +30,7 @@ Library
    QuickCheck >= 2 
 
 Executable CreateTorrent
-  Main-is: Tools/CreateTorrent.hs
+  Main-is: CreateTorrent.hs
 
   Build-depends:
     base >= 4, containers, bittorrent, Crypto >= 4, bytestring,
