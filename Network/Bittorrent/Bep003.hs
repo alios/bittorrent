@@ -220,28 +220,22 @@ createTorrent fp ann plen = do
   let pieces = splitPieces plen fullbuf
   let hashes = map (SHA1.hash.BS.unpack) pieces
   let infoPieces = BS.pack $ concat $ map w160_w8 hashes
-  let files = map (\(fp, bs) -> BDict [("length",BInteger $ toInteger $
-                                                 BS.length bs)
-                                      ,("path",mkBString fp)]) fs
-  case (length fs) of
-    0 -> error $ "createTorrent: got a fs of length 0 for " ++ fp
-    1 -> return $ 
-         BDict [ ("announce", announce)
-               , ("info", BDict [ ("name", mkBString name) 
-                                , ("piece length", infoPieceLength)
-                                , ("pieces", BString $ infoPieces)
-                                , ("length", BInteger $ toInteger $ 
-                                             BS.length fullbuf )
-                                ])
-               ]
-    otherwise -> return $ 
-                 BDict [ ("announce", announce)
-                       , ("info", BDict [ ("name", mkBString name) 
-                                        , ("piece length", infoPieceLength)
-                                        , ("pieces", BString $ infoPieces)
-                                        , ("files", BList files)
-                                        ])
-                       ]
+  let files = 
+        map (\(fp, bs) -> BDict [("length",BInteger $ toInteger $ BS.length bs)
+                                ,("path",mkBString fp)]) fs
+  let descriptor =
+        case (length fs) of
+          0 -> error $ "createTorrent: got a fs of length 0 for " ++ fp
+          1 -> ("length", BInteger $ toInteger $ BS.length fullbuf ) 
+          otherwise -> ("files", BList files)
+            
+  return $ BDict [ ("announce", announce)
+                 , ("info", BDict [ ("name", mkBString name) 
+                                  , ("piece length", infoPieceLength)
+                                  , ("pieces", BString $ infoPieces)
+                                  , descriptor
+                                  ])
+                 ]
 
 
 -- | 2 ^ x
