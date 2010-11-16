@@ -29,8 +29,8 @@ Library
    directory >= 1, filepath >= 1, binary, bytestring, encoding, 
    QuickCheck >= 2 
 
-Executable CreateTorrent
-  Main-is: CreateTorrent.hs
+Executable FailTest 
+  Main-is: FailTest.hs
 
   Build-depends:
     base >= 4, containers, bittorrent, Crypto >= 4, bytestring,
