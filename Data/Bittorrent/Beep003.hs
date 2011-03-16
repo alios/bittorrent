@@ -5,19 +5,20 @@ module Data.Bittorrent.Beep003 (MetaInfo (..)
                                ,MetaInfoInfoFile (..)) where
 
 import Data.Maybe (Maybe(..), fromJust)
-import Data.Word (Word8)
-import Data.Char (ord)
+import Data.Binary (encode)
 import Data.Binary.Get (Get, runGet, getWord32le, isEmpty)
-import Data.Digest.SHA1 (Word160(..))
+import Data.Digest.SHA1 (Word160(..), hash)
 import qualified Data.ByteString.Lazy as BS
 import System.FilePath (joinPath)
 import Network.URI (URI, parseURI)
 import Data.Bittorrent.Intern
+import Data.Bittorrent.Binary
 
 class MetaInfo b where
   type MetaInfoInfoT :: *
   miAnnounce :: b -> URI  
   miInfo :: b -> MetaInfoInfoT
+  miInfoHash :: b -> Word160
 
 class MetaInfoInfo b where
   type MetaInfoInfoFileT :: *
@@ -37,7 +38,9 @@ instance MetaInfo BEncodedT where
   type MetaInfoInfoT = BEncodedT
   miAnnounce = fromJust.parseURI.unpackBStringUTF8.lookupBDict "announce"
   miInfo = lookupBDict "info"
-
+  miInfoHash = hash.BS.unpack.encode.miInfo
+    
+    
 instance MetaInfoInfo BEncodedT where 
   type MetaInfoInfoFileT = BEncodedT
   miiName = unpackBStringUTF8.lookupBDict "name"

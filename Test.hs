@@ -20,6 +20,8 @@ n = pmap (miiName.miInfo)
 ps = pmap (miiPieces.miInfo)
 l = pmap (miiLength.miInfo)
 fs = pmap (miiFiles.miInfo)
+mih = pmap (miInfoHash)
+
 
 fsp = pmap ((map miifPath).fromJust.miiFiles.miInfo)
 fsi = pmap ((map miifLength).fromJust.miiFiles.miInfo)
