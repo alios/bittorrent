@@ -6,7 +6,7 @@ module Data.Bittorrent.Beep003 (MetaInfo (..)
 
 import Data.Maybe (Maybe(..), fromJust)
 import Data.Binary (encode)
-import Data.Binary.Get (Get, runGet, getWord32le, isEmpty)
+import Data.Binary.Get (Get, runGet, getWord32be, isEmpty)
 import Data.Digest.SHA1 (Word160(..), hash)
 import qualified Data.ByteString.Lazy as BS
 import System.FilePath (joinPath)
@@ -58,11 +58,11 @@ getSHA1s :: Get [Word160]
 getSHA1s = do  
   e <- isEmpty
   if (e) then return []
-    else do a <- getWord32le
-            b <- getWord32le
-            c <- getWord32le
-            d <- getWord32le
-            e <- getWord32le
+    else do a <- getWord32be
+            b <- getWord32be
+            c <- getWord32be
+            d <- getWord32be
+            e <- getWord32be
             let r = Word160 a b c d e
             rs <- getSHA1s
             return (r:rs)

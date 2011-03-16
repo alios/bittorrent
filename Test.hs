@@ -27,10 +27,20 @@ fsp = pmap ((map miifPath).fromJust.miiFiles.miInfo)
 fsi = pmap ((map miifLength).fromJust.miiFiles.miInfo)
 
 
-main :: IO ()
-main = do r <- fsp
-          print r
-
 
 x = M.fromList [("zeuss", 6),("fnord", 23), ("bar", 42), ("armor", 23)]
 y = M.toAscList x
+
+tf = do
+  tor <-createTorrent defaultConfig { cfg_fp = "/home/alios/Downloads/Sick of Sarah - 2205 BitTorrent Edition" }
+  encodeFile "/tmp/tor.torrent" tor
+
+f1 = decodeBEncodedFile "/tmp/tor.torrent"
+
+main =  do
+  --tf
+  a <- t
+  b <- f1
+  print $ ((map miifLength).fromJust.miiFiles.miInfo) a
+  print $ ((map miifLength).fromJust.miiFiles.miInfo) b
+  
