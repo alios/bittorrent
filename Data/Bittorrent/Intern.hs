@@ -1,5 +1,6 @@
+{-# LANGUAGE DeriveDataTypeable #-}
 {-
-Copyright (c)2010, Markus Barenhoff
+Copyright (c)2011, Markus Barenhoff
 
 All rights reserved.
 
@@ -31,6 +32,30 @@ THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 -}
 
-module Network.Bittorrent (module Network.Bittorrent.Bep003) where
 
-import Network.Bittorrent.Bep003
+module Data.Bittorrent.Intern (BEncodedT(..)
+                              ,unpackBString
+                              ,unpackBInteger
+                              ,unpackBList
+                              ,unpackBDict
+                              ,lookupBDict
+                              ,lookupBDict') where
+
+import Data.Data (Data, Typeable)
+import Data.Maybe (fromJust)
+
+import qualified Data.Map as M
+
+
+data BEncodedT = BString String
+               | BInteger Integer
+               | BList [ BEncodedT ]
+               | BDict (M.Map String BEncodedT)
+               deriving (Eq, Ord, Show, Read, Data, Typeable)
+               
+unpackBString (BString s) = s
+unpackBInteger (BInteger i) = i
+unpackBList (BList l) = l
+unpackBDict (BDict d) = d     
+lookupBDict k d = fromJust $ lookupBDict' k d
+lookupBDict' k d = M.lookup k $ unpackBDict d  

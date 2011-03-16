@@ -1,5 +1,5 @@
 {-
-Copyright (c)2010, Markus Barenhoff
+Copyright (c)2011, Markus Barenhoff
 
 All rights reserved.
 
@@ -31,48 +31,10 @@ THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 -}
 
-module Main where
+module Data.Bittorrent (module Data.Bittorrent.Beep003
+                       ,module Data.Bittorrent.Parser  
+                       ) where
+       
+import Data.Bittorrent.Beep003
+import Data.Bittorrent.Parser
 
-import Data.Binary
-import Data.Maybe (fromJust)
-import System.Environment
-import System.Exit
-import System.Console.GetOpt
-import System.FilePath.Posix
-import Network.URI
-import Network.Bittorrent
-
-t = mainarg ["http://www.google.de", "/tmp/tftpboot"]
-
-main :: IO Int
-main = do
-  argv <- getArgs
-  mainarg argv
-  
-
-
-mainarg :: [String] -> IO Int
-mainarg argv = 
-  let f = (argv !! 1) 
-      ann = fromJust $ parseURI (argv !! 0) 
-  in do 
-    print $ "parsing torrent " ++ f
-    torrent <- createTorrent f ann defaultPieceLength
-    let fn = ((metaInfoName torrent) <.> "torrent")
-    print $ "encoding file " ++ fn
-    encodeFile fn torrent
-    print $ "done"
-    return 0
-
-data Flag = 
-  PieceSizePower String
-  deriving (Eq, Show)
-           
-options :: [OptDescr Flag]
-options = 
-  [ Option [] ["piece_size_pow2"] (ReqArg PieceSizePower "POWER") $
-    "which power of two to set the piece size to, 0 means pick a good " 
-    ++ "piece size (defaults to 0)"
-  ]
-  
-header = "Usage: CreateTorrent [OPTION...] tracker-url file/dir ..."
