@@ -4,7 +4,7 @@ License:             BSD3
 License-file:        LICENSE
 Author:              Markus Barenhoff
 Maintainer:          Markus Barenhoff <alios@alios.org>
-Copyright:	     Markus Barenhoff 2010
+Copyright:	     Markus Barenhoff 2011
 Homepage:            http://github.com/alios/bittorrent
 
 Stability:           Stable
@@ -18,21 +18,9 @@ Tested-With:	     GHC==6.12.2
 
 Library
   Exposed-Modules:
-    Data.Binary.Helpers
-    Network.Bittorrent
-
-  Extensions: 
-    DeriveDataTypeable
+    Data.Bittorrent
 
   Build-depends: 
-   base >= 4, network >= 2, HTTP >= 4000, containers, Crypto >= 4,
-   directory >= 1, filepath >= 1, binary, bytestring, encoding, 
-   QuickCheck >= 2 
-
-Executable FailTest 
-  Main-is: FailTest.hs
-
-  Build-depends:
-    base >= 4, containers, bittorrent, Crypto >= 4, bytestring,
-    filepath >= 1, directory >= 1, network >= 2, binary, encoding
+   base >= 4, network >= 2, HTTP >= 4000, Crypto >= 4, containers,
+   parsec >= 3, filepath, binary, transformers, bytestring
 

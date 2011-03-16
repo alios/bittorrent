@@ -1,4 +1,4 @@
-module Test where
+module Main where
 
 import Data.Maybe (fromJust)
 import Data.Bittorrent
@@ -19,3 +19,10 @@ fs = pmap (miiFiles.miInfo)
 
 fsp = pmap ((map miifPath).fromJust.miiFiles.miInfo)
 fsi = pmap ((map miifLength).fromJust.miiFiles.miInfo)
+
+
+main :: IO ()
+main = do r <- fsp
+          print r
+
+
