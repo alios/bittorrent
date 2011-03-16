@@ -22,5 +22,5 @@ Library
 
   Build-depends: 
    base >= 4, network >= 2, HTTP >= 4000, Crypto >= 4, containers,
-   parsec >= 3, filepath, binary, transformers, bytestring
+   binary, encoding, filepath, binary, transformers, bytestring
 

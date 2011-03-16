@@ -2,14 +2,13 @@ module Main where
 
 import Data.Maybe (fromJust)
 import Data.Bittorrent
+import Data.Binary
 
-t = parseBEncodedFile "/home/alios/tmp/cc.torrent"
+t = decodeBEncodedFile "/home/alios/tmp/cc.torrent"
 
 pmap f = do
   r <- t
-  case r of
-    Left err  -> fail $ show err
-    Right res -> return $ f res
+  return $ f r
     
 a = pmap miAnnounce 
 n = pmap (miiName.miInfo)

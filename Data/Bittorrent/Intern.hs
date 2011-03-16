@@ -34,26 +34,35 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 
 module Data.Bittorrent.Intern (BEncodedT(..)
+                              ,unpackBStringBS
                               ,unpackBString
+                              ,unpackBStringASCII
+                              ,unpackBStringUTF8
                               ,unpackBInteger
                               ,unpackBList
                               ,unpackBDict
                               ,lookupBDict
                               ,lookupBDict') where
 
+import qualified Data.ByteString.Lazy as BS
 import Data.Data (Data, Typeable)
 import Data.Maybe (fromJust)
+import Data.Encoding (decodeLazyByteString)
+import Data.Encoding.ASCII
+import Data.Encoding.UTF8
 
 import qualified Data.Map as M
 
-
-data BEncodedT = BString String
+data BEncodedT = BString BS.ByteString
                | BInteger Integer
                | BList [ BEncodedT ]
                | BDict (M.Map String BEncodedT)
                deriving (Eq, Ord, Show, Read, Data, Typeable)
                
-unpackBString (BString s) = s
+unpackBStringBS (BString s) = s
+unpackBString e (BString s) = decodeLazyByteString e s
+unpackBStringASCII bs@(BString s) = unpackBString ASCII bs
+unpackBStringUTF8 bs@(BString s) = unpackBString UTF8 bs
 unpackBInteger (BInteger i) = i
 unpackBList (BList l) = l
 unpackBDict (BDict d) = d     

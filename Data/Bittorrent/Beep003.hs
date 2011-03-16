@@ -35,20 +35,20 @@ class MetaInfoInfoFile b where
 
 instance MetaInfo BEncodedT where
   type MetaInfoInfoT = BEncodedT
-  miAnnounce = fromJust.parseURI.unpackBString.lookupBDict "announce"
+  miAnnounce = fromJust.parseURI.unpackBStringUTF8.lookupBDict "announce"
   miInfo = lookupBDict "info"
 
 instance MetaInfoInfo BEncodedT where 
   type MetaInfoInfoFileT = BEncodedT
-  miiName = unpackBString.lookupBDict "name"
+  miiName = unpackBStringUTF8.lookupBDict "name"
   miiPieceLength = unpackBInteger.lookupBDict "piece length"
-  miiPiecesRaw = BS.pack.strW8.unpackBString.lookupBDict "pieces"
+  miiPiecesRaw = unpackBStringBS.lookupBDict "pieces"
   miiLength b = maybe Nothing (\b -> Just $ unpackBInteger b) (lookupBDict' "length" b)
   miiFiles b = maybe Nothing (\b -> Just $ unpackBList b) (lookupBDict' "files" b)
   
 instance MetaInfoInfoFile BEncodedT where
   miifLength = unpackBInteger.lookupBDict "length"
-  miifPath = joinPath.(map unpackBString).unpackBList.lookupBDict "path"
+  miifPath = joinPath.(map unpackBStringUTF8).unpackBList.lookupBDict "path"
 
 
 getSHA1s :: Get [Word160]
@@ -64,15 +64,3 @@ getSHA1s = do
             rs <- getSHA1s
             return (r:rs)
 
-strW8 :: String -> [Word8]
-strW8 = map f'
-  where f' :: Char -> Word8
-        f' = fromInteger.toInteger.ord
-
-splitn :: Int -> [t] -> [[t]]
-splitn _ [] = []
-splitn n xs =
-  let l = length xs
-      tn = take n xs
-      dn = drop n xs
-  in tn : splitn n dn

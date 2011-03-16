@@ -32,10 +32,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 -}
 
 module Data.Bittorrent (module Data.Bittorrent.Beep003
-                       ,module Data.Bittorrent.Parser
-                       ,module Data.Bittorrent.Put
+                       ,module Data.Bittorrent.Binary
                        ) where
        
 import Data.Bittorrent.Beep003
-import Data.Bittorrent.Parser
-import Data.Bittorrent.Put
+import Data.Bittorrent.Binary

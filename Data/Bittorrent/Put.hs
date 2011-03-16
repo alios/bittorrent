@@ -38,23 +38,27 @@ import qualified Data.Map as M
 import Data.Binary
 import Data.Binary.Put
 import Data.Bittorrent.Intern
-  
+import Data.Encoding (encodeLazyByteString)
+import Data.Encoding.ASCII
+import qualified Data.ByteString.Lazy as BS  
   
 putBEncodedT :: BEncodedT -> Put
-putBEncodedT (BString s) =
-  let len = show $ length s
-  in putString $ len ++ ":" ++ s
+putBEncodedT (BString s) = do
+  putAsciiString $ show $ BS.length s
+  putAsciiString ":"
+  putLazyByteString $ s
+
 putBEncodedT (BInteger i) =
-  putString $ "i" ++ show i ++ "e"
+  putAsciiString $ "i" ++ show i ++ "e"
   
 putBEncodedT (BList l) = do
-  putString "l"
+  putAsciiString "l"
   sequence $ map putBEncodedT l
-  putString "e"
+  putAsciiString "e"  
   
 putBEncodedT (BDict d) = do
-  putString "d"
-  sequence $ map (\(k,v) -> do putString k; putBEncodedT v) $ M.toList d
-  putString "e"
+  putAsciiString "d"
+  sequence $ map (\(k,v) -> do putAsciiString k; putBEncodedT v) $ M.toList d
+  putAsciiString "e"
 
-putString = putLazyByteString.encode
+putAsciiString s = putLazyByteString $ encodeLazyByteString ASCII s
