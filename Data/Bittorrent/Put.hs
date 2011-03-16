@@ -48,8 +48,8 @@ putBEncodedT (BString s) = do
   putAsciiString ":"
   putLazyByteString $ s
 
-putBEncodedT (BInteger i) =
-  putAsciiString $ "i" ++ show i ++ "e"
+putBEncodedT (BInteger i) = do
+  putAsciiString $ "i" ++ (show i) ++ "e"
   
 putBEncodedT (BList l) = do
   putAsciiString "l"
@@ -58,7 +58,10 @@ putBEncodedT (BList l) = do
   
 putBEncodedT (BDict d) = do
   putAsciiString "d"
-  sequence $ map (\(k,v) -> do putAsciiString k; putBEncodedT v) $ M.toList d
+  sequence $ map (\(k,v) -> do
+                     putBEncodedT $ BString $ encodeLazyByteString ASCII k 
+                     putBEncodedT v) $ M.toAscList d
   putAsciiString "e"
-
+  
+putAsciiString :: String -> Put
 putAsciiString s = putLazyByteString $ encodeLazyByteString ASCII s
