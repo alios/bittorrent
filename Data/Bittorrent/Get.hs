@@ -78,7 +78,10 @@ getBDict = do
   getOneOf "d"
   ds <- whileNot 'e' getBDictPair
   getOneOf "e"
-  return $ BDict $ M.fromList ds
+  let lst = M.fromAscList ds
+  if (M.valid lst)
+    then return $ BDict $ M.fromList ds
+    else fail "read dictionary is not a valid dict"
   
 getBDictPair :: Get (String, BEncodedT)
 getBDictPair = do
