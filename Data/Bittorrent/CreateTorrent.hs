@@ -39,21 +39,21 @@ module Data.Bittorrent.CreateTorrent (cfg_announce
                                      ,defaultConfig
                                      ,createTorrent) where
 
-import Data.List
-import Data.Binary (put)
-import Data.Binary.Put (runPut, putWord32be)
 import qualified Data.Map as M
 import qualified Data.ByteString.Lazy as BS
+import Data.List
+import Data.Int (Int64)
+import Data.Maybe (fromJust)
+import Data.Binary (put)
+import Data.Binary.Put (runPut)
 import Network.URI (URI, nullURI)
-import Data.Bittorrent.Intern
-import Data.Bittorrent.Binary
 import Data.Encoding (encodeLazyByteString)
 import Data.Encoding.UTF8
 import System.Directory
 import System.FilePath
-import Data.Maybe (fromJust)
 import Data.Digest.SHA1 (Word160(..), hash)
-
+import Data.Bittorrent.Intern
+import Data.Bittorrent.Binary ()
 
 data BTTorrentConfig =
   BTTorrentConfig {
@@ -63,7 +63,8 @@ data BTTorrentConfig =
     cfg_pieceLength :: Integer
     }
   
-defaultConfig = BTTorrentConfig nullURI "" Nothing (2^18)
+defaultConfig :: BTTorrentConfig
+defaultConfig = BTTorrentConfig nullURI "" Nothing (2^ (18 :: Integer))
 
 createTorrent :: BTTorrentConfig -> IO BEncodedT
 createTorrent cfg =
@@ -90,14 +91,15 @@ createTorrent cfg =
         
     let info = BDict $ M.fromList $ [("name", name)
                                     ,("piece length", BInteger pl)
-                                    ,("pieces", BString $ BS.concat $ map (\h -> runPut $ put h) pieces )
+                                    ,("pieces", BString $ BS.concat $ 
+                                                map (\h -> runPut $ put h) 
+                                                pieces )
                                     ] ++ [info2]
     
     return $ BDict $ M.fromList [("announce", an) 
                                 ,("info", info) 
                                 ]
-    
-    
+        
 transformPath :: FilePath -> FilePath -> BEncodedT
 transformPath fp p = 
   let sp = makeRelative fp p 
@@ -111,6 +113,8 @@ createSHA1Pieces l bs' =
      else (hash $ BS.unpack $ b) : chld
    
 
+readPieces :: Bool -> BTTorrentConfig -> 
+              IO (Maybe [(FilePath, Int64)], BS.ByteString)
 readPieces isFile cfg
   | isFile = 
     do f <- BS.readFile $ cfg_fp cfg
@@ -121,10 +125,10 @@ readPieces isFile cfg
        let info = zip fs $ map BS.length fsc
        return (Just info, BS.concat fsc)
   
-                
 findFiles :: FilePath -> IO [FilePath]
 findFiles fp = do
-  cs <- fmap (sort.filter (\c -> c /= "." && c /= ".." )) $ getDirectoryContents fp
+  cs <- fmap (sort.filter (\c -> c /= "." && c /= ".." )) $ 
+        getDirectoryContents fp
   let cs' = map (fp </>) cs
   fs <- fmap (zip cs') $ sequence $ map doesFileExist $ cs'
   ds <- fmap (zip cs') $ sequence $ map doesDirectoryExist $ cs'

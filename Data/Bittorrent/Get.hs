@@ -39,7 +39,6 @@ import Data.Char (chr)
 import Data.Binary
 import Data.Binary.Get
 import Data.Bittorrent.Intern
-import Data.Encoding (decodeLazyByteString)
 import Data.Encoding.ASCII
 import Data.Digest.SHA1 (Word160(..))     
 
@@ -59,21 +58,21 @@ getBEncodedT = do
     'i' -> getBInteger
     'l' -> getBList
     'd' -> getBDict
-    otherwise -> getBString
+    _ -> getBString
     
     
 getBInteger :: Get BEncodedT
 getBInteger = do
-  getOneOf "i"
+  _ <- getOneOf "i"
   i <- getNumber
-  getOneOf "e"
+  _ <- getOneOf "e"
   return $ BInteger i
 
 getBList :: Get BEncodedT
 getBList = do
-  getOneOf "l"
+  _ <- getOneOf "l"
   l <- whileNot 'e' getBEncodedT
-  getOneOf "e"
+  _ <- getOneOf "e"
   return $ BList l
 
 getBString :: Get BEncodedT
@@ -84,9 +83,9 @@ getBString = do
 
 getBDict :: Get BEncodedT
 getBDict = do
-  getOneOf "d"
+  _ <- getOneOf "d"
   ds <- whileNot 'e' getBDictPair
-  getOneOf "e"
+  _ <- getOneOf "e"
   let lst = M.fromAscList ds
   if (M.valid lst)
     then return $ BDict $ M.fromList ds
@@ -120,24 +119,17 @@ whileNot s p = do
             as <- whileNot s p
             return (a:as)
 
-count :: Integer -> Get a -> Get [a]
-count l p
-  | l <= 0 = do return []
-  | otherwise = do a <- p
-                   as <- count (l-1) p
-                   return (a:as)
-
 getNumber :: Get Integer
 getNumber = do
   c <- lookAhead $ getOneOf $ ['0'..'9'] ++ ['-']
   case (c) of
     '0' -> do skip 1; return 0
     '-' -> getNegNumber
-    otherwise -> getPosNumber
+    _ -> getPosNumber
     
 getNegNumber = do
-  getOneOf "-"
-  getPosNumber
+  _ <- getOneOf "-"
+  fmap negate getPosNumber
                
 
 getPosNumber = do

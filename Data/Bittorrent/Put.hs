@@ -62,14 +62,14 @@ putBEncodedT (BInteger i) = do
   
 putBEncodedT (BList l) = do
   putAsciiString "l"
-  sequence $ map putBEncodedT l
+  _ <- sequence $ map putBEncodedT l
   putAsciiString "e"  
   
 putBEncodedT (BDict d) = do
   putAsciiString "d"
-  sequence $ map (\(k,v) -> do
-                     putBEncodedT $ BString $ encodeLazyByteString ASCII k 
-                     putBEncodedT v) $ M.toAscList d
+  _ <- sequence $ map (\(k,v) -> do
+                          putBEncodedT $ BString $ encodeLazyByteString ASCII k 
+                          putBEncodedT v) $ M.toAscList d
   putAsciiString "e"
   
 putAsciiString :: String -> Put

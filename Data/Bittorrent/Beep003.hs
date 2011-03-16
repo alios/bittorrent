@@ -42,11 +42,11 @@ import qualified Data.ByteString.Lazy as BS
 import Data.Binary (get, encode)
 import Data.Binary.Get (Get, runGet, isEmpty)
 import Data.Digest.SHA1 (Word160(..), hash)
-import Data.Maybe (Maybe(..), fromJust)
+import Data.Maybe (fromJust)
 import Network.URI (URI, parseURI)
 import System.FilePath (joinPath)
 import Data.Bittorrent.Intern
-import Data.Bittorrent.Binary
+import Data.Bittorrent.Binary ()
 
 class MetaInfo b where
   type MetaInfoInfoT :: *
