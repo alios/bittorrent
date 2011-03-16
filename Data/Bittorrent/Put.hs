@@ -31,11 +31,30 @@ THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 -}
 
-module Data.Bittorrent (module Data.Bittorrent.Beep003
-                       ,module Data.Bittorrent.Parser
-                       ,module Data.Bittorrent.Put
-                       ) where
-       
-import Data.Bittorrent.Beep003
-import Data.Bittorrent.Parser
-import Data.Bittorrent.Put
+module Data.Bittorrent.Put (putBEncodedT) where
+
+import qualified Data.Map as M
+
+import Data.Binary
+import Data.Binary.Put
+import Data.Bittorrent.Intern
+  
+  
+putBEncodedT :: BEncodedT -> Put
+putBEncodedT (BString s) =
+  let len = show $ length s
+  in putString $ len ++ ":" ++ s
+putBEncodedT (BInteger i) =
+  putString $ "i" ++ show i ++ "e"
+  
+putBEncodedT (BList l) = do
+  putString "l"
+  sequence $ map putBEncodedT l
+  putString "e"
+  
+putBEncodedT (BDict d) = do
+  putString "d"
+  sequence $ map (\(k,v) -> do putString k; putBEncodedT v) $ M.toList d
+  putString "e"
+
+putString = putLazyByteString.encode
