@@ -31,7 +31,7 @@ THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 -}
 
-module Data.Bittorrent.Put (putBEncodedT) where
+module Data.Bittorrent.Put (putBEncodedT, putWord160) where
 
 import qualified Data.Map as M
 
@@ -40,8 +40,17 @@ import Data.Binary.Put
 import Data.Bittorrent.Intern
 import Data.Encoding (encodeLazyByteString)
 import Data.Encoding.ASCII
+import Data.Digest.SHA1 (Word160(..))
 import qualified Data.ByteString.Lazy as BS  
   
+putWord160 :: Word160 -> Put
+putWord160 (Word160 a b c d e) = 
+  do putWord32be a
+     putWord32be b
+     putWord32be c 
+     putWord32be d
+     putWord32be e
+         
 putBEncodedT :: BEncodedT -> Put
 putBEncodedT (BString s) = do
   putAsciiString $ show $ BS.length s

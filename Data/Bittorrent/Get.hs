@@ -31,7 +31,7 @@ THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 -}
 
-module Data.Bittorrent.Get (getBEncodedT) where
+module Data.Bittorrent.Get (getBEncodedT, getWord160) where
 
 import qualified Data.Map as M
 
@@ -41,7 +41,16 @@ import Data.Binary.Get
 import Data.Bittorrent.Intern
 import Data.Encoding (decodeLazyByteString)
 import Data.Encoding.ASCII
+import Data.Digest.SHA1 (Word160(..))     
 
+getWord160 :: Get Word160
+getWord160 = 
+  do a <- getWord32be
+     b <- getWord32be
+     c <- getWord32be
+     d <- getWord32be
+     e <- getWord32be
+     return $ Word160 a b c d e
 
 getBEncodedT :: Get BEncodedT
 getBEncodedT = do

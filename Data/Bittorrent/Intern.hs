@@ -68,3 +68,5 @@ unpackBList (BList l) = l
 unpackBDict (BDict d) = d     
 lookupBDict k d = fromJust $ lookupBDict' k d
 lookupBDict' k d = M.lookup k $ unpackBDict d  
+
+

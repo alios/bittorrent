@@ -40,11 +40,13 @@ module Data.Bittorrent.CreateTorrent (cfg_announce
                                      ,createTorrent) where
 
 import Data.List
+import Data.Binary (put)
 import Data.Binary.Put (runPut, putWord32be)
 import qualified Data.Map as M
 import qualified Data.ByteString.Lazy as BS
 import Network.URI (URI, nullURI)
 import Data.Bittorrent.Intern
+import Data.Bittorrent.Binary
 import Data.Encoding (encodeLazyByteString)
 import Data.Encoding.UTF8
 import System.Directory
@@ -88,7 +90,7 @@ createTorrent cfg =
         
     let info = BDict $ M.fromList $ [("name", name)
                                     ,("piece length", BInteger pl)
-                                    ,("pieces", BString $ BS.concat $ map encodeWord160 pieces )
+                                    ,("pieces", BString $ BS.concat $ map (\h -> runPut $ put h) pieces )
                                     ] ++ [info2]
     
     return $ BDict $ M.fromList [("announce", an) 
@@ -100,14 +102,6 @@ transformPath :: FilePath -> FilePath -> BEncodedT
 transformPath fp p = 
   let sp = makeRelative fp p 
   in BList $ map (BString.(encodeLazyByteString UTF8)) $ splitDirectories sp
-
-encodeWord160 :: Word160 -> BS.ByteString
-encodeWord160 (Word160 a b c d e) = runPut $
-  do putWord32be a
-     putWord32be b
-     putWord32be c 
-     putWord32be d
-     putWord32be e
 
 createSHA1Pieces :: Integer -> BS.ByteString -> [Word160]
 createSHA1Pieces l bs' =

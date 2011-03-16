@@ -1,16 +1,50 @@
 {-# LANGUAGE TypeFamilies #-}
 
+{-
+Copyright (c)2011, Markus Barenhoff
+
+All rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
+
+    * Redistributions of source code must retain the above copyright
+      notice, this list of conditions and the following disclaimer.
+
+    * Redistributions in binary form must reproduce the above
+      copyright notice, this list of conditions and the following
+      disclaimer in the documentation and/or other materials provided
+      with the distribution.
+
+    * Neither the name of Markus Barenhoff nor the names of other
+      contributors may be used to endorse or promote products derived
+      from this software without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+"AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+-}
+
 module Data.Bittorrent.Beep003 (MetaInfo (..)
                                ,MetaInfoInfo (..)
                                ,MetaInfoInfoFile (..)) where
 
-import Data.Maybe (Maybe(..), fromJust)
-import Data.Binary (encode)
-import Data.Binary.Get (Get, runGet, getWord32be, isEmpty)
-import Data.Digest.SHA1 (Word160(..), hash)
 import qualified Data.ByteString.Lazy as BS
-import System.FilePath (joinPath)
+
+import Data.Binary (get, encode)
+import Data.Binary.Get (Get, runGet, isEmpty)
+import Data.Digest.SHA1 (Word160(..), hash)
+import Data.Maybe (Maybe(..), fromJust)
 import Network.URI (URI, parseURI)
+import System.FilePath (joinPath)
 import Data.Bittorrent.Intern
 import Data.Bittorrent.Binary
 
@@ -53,17 +87,11 @@ instance MetaInfoInfoFile BEncodedT where
   miifLength = unpackBInteger.lookupBDict "length"
   miifPath = joinPath.(map unpackBStringUTF8).unpackBList.lookupBDict "path"
 
-
 getSHA1s :: Get [Word160]
 getSHA1s = do  
   e <- isEmpty
   if (e) then return []
-    else do a <- getWord32be
-            b <- getWord32be
-            c <- getWord32be
-            d <- getWord32be
-            e <- getWord32be
-            let r = Word160 a b c d e
+    else do r <- get 
             rs <- getSHA1s
             return (r:rs)
 
