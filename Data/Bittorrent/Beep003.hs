@@ -80,8 +80,8 @@ instance MetaInfoInfo BEncodedT where
   miiName = unpackBString.lookupBDict "name"
   miiPieceLength = unpackBInteger.lookupBDict "piece length"
   miiPiecesRaw = unpackBStringBS.lookupBDict "pieces"
-  miiLength b = maybe Nothing (\b -> Just $ unpackBInteger b) (lookupBDict' "length" b)
-  miiFiles b = maybe Nothing (\b -> Just $ unpackBList b) (lookupBDict' "files" b)
+  miiLength b = maybe Nothing (\i -> Just $ unpackBInteger i) (lookupBDict' "length" b)
+  miiFiles b = maybe Nothing (\l -> Just $ unpackBList l) (lookupBDict' "files" b)
   
 instance MetaInfoInfoFile BEncodedT where
   miifLength = unpackBInteger.lookupBDict "length"

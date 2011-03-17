@@ -53,6 +53,7 @@ import Data.Digest.SHA1 (Word160(..), hash)
 import Data.Bittorrent.Intern
 import Data.Bittorrent.Binary ()
 import Data.ByteString.Lazy.UTF8 (fromString)
+import Control.Parallel
 
 data BTTorrentConfig =
   BTTorrentConfig {
@@ -108,10 +109,10 @@ createSHA1Pieces :: Integer -> BS.ByteString -> [Word160]
 createSHA1Pieces l bs' =
   let (b, bs) = BS.splitAt (fromInteger l) bs'
       chld = createSHA1Pieces l bs
+      hash' = hash $ BS.unpack $ b 
   in if (b == BS.empty) then []
-     else (hash $ BS.unpack $ b) : chld
+     else par chld (pseq hash' (hash' : chld))
    
-
 readPieces :: Bool -> BTTorrentConfig -> 
               IO (Maybe [(FilePath, Int64)], BS.ByteString)
 readPieces isFile cfg
