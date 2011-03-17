@@ -38,9 +38,9 @@ import qualified Data.Map as M
 import Data.Binary
 import Data.Binary.Put
 import Data.Bittorrent.Intern
-import Data.Encoding (encodeLazyByteString)
-import Data.Encoding.ASCII
 import Data.Digest.SHA1 (Word160(..))
+import Data.ByteString.Lazy.UTF8 (fromString)
+
 import qualified Data.ByteString.Lazy as BS  
   
 putWord160 :: Word160 -> Put
@@ -68,9 +68,9 @@ putBEncodedT (BList l) = do
 putBEncodedT (BDict d) = do
   putAsciiString "d"
   _ <- sequence $ map (\(k,v) -> do
-                          putBEncodedT $ BString $ encodeLazyByteString ASCII k 
+                          putBEncodedT $ BString $ fromString k 
                           putBEncodedT v) $ M.toAscList d
   putAsciiString "e"
   
 putAsciiString :: String -> Put
-putAsciiString s = putLazyByteString $ encodeLazyByteString ASCII s
+putAsciiString s = putLazyByteString $ fromString s

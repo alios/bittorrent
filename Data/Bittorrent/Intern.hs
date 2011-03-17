@@ -36,8 +36,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 module Data.Bittorrent.Intern (BEncodedT(..)
                               ,unpackBStringBS
                               ,unpackBString
-                              ,unpackBStringASCII
-                              ,unpackBStringUTF8
                               ,unpackBInteger
                               ,unpackBList
                               ,unpackBDict
@@ -47,9 +45,7 @@ module Data.Bittorrent.Intern (BEncodedT(..)
 import qualified Data.ByteString.Lazy as BS
 import Data.Data (Data, Typeable)
 import Data.Maybe (fromJust)
-import Data.Encoding (decodeLazyByteString)
-import Data.Encoding.ASCII
-import Data.Encoding.UTF8
+import Data.ByteString.Lazy.UTF8 (toString)
 
 import qualified Data.Map as M
 
@@ -60,9 +56,7 @@ data BEncodedT = BString BS.ByteString
                deriving (Eq, Ord, Show, Read, Data, Typeable)
                
 unpackBStringBS (BString s) = s
-unpackBString e (BString s) = decodeLazyByteString e s
-unpackBStringASCII bs@(BString s) = unpackBString ASCII bs
-unpackBStringUTF8 bs@(BString s) = unpackBString UTF8 bs
+unpackBString (BString s) = toString s
 unpackBInteger (BInteger i) = i
 unpackBList (BList l) = l
 unpackBDict (BDict d) = d     

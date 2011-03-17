@@ -47,13 +47,12 @@ import Data.Maybe (fromJust)
 import Data.Binary (put)
 import Data.Binary.Put (runPut)
 import Network.URI (URI, nullURI)
-import Data.Encoding (encodeLazyByteString)
-import Data.Encoding.UTF8
 import System.Directory
 import System.FilePath
 import Data.Digest.SHA1 (Word160(..), hash)
 import Data.Bittorrent.Intern
 import Data.Bittorrent.Binary ()
+import Data.ByteString.Lazy.UTF8 (fromString)
 
 data BTTorrentConfig =
   BTTorrentConfig {
@@ -68,10 +67,10 @@ defaultConfig = BTTorrentConfig nullURI "" Nothing (2^ (18 :: Integer))
 
 createTorrent :: BTTorrentConfig -> IO BEncodedT
 createTorrent cfg =
-  let an = BString $ encodeLazyByteString UTF8 $ show $ cfg_announce cfg
+  let an = BString $ fromString $ show $ cfg_announce cfg
       fp = cfg_fp cfg
       pl = cfg_pieceLength cfg
-      name = BString $ encodeLazyByteString UTF8 $  case (cfg_name cfg) of
+      name = BString $ fromString $  case (cfg_name cfg) of
         Just n -> n
         Nothing -> takeFileName fp
   in do
@@ -103,7 +102,7 @@ createTorrent cfg =
 transformPath :: FilePath -> FilePath -> BEncodedT
 transformPath fp p = 
   let sp = makeRelative fp p 
-  in BList $ map (BString.(encodeLazyByteString UTF8)) $ splitDirectories sp
+  in BList $ map BString $ map fromString $ splitDirectories sp
 
 createSHA1Pieces :: Integer -> BS.ByteString -> [Word160]
 createSHA1Pieces l bs' =

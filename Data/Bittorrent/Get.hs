@@ -39,7 +39,6 @@ import Data.Char (chr)
 import Data.Binary
 import Data.Binary.Get
 import Data.Bittorrent.Intern
-import Data.Encoding.ASCII
 import Data.Digest.SHA1 (Word160(..))     
 
 getWord160 :: Get Word160
@@ -93,7 +92,7 @@ getBDict = do
   
 getBDictPair :: Get (String, BEncodedT)
 getBDictPair = do
-  k <- fmap (unpackBString ASCII) getBString
+  k <- fmap unpackBString getBString
   v <- getBEncodedT
   return (k,v)
 

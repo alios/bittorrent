@@ -70,14 +70,14 @@ class MetaInfoInfoFile b where
 
 instance MetaInfo BEncodedT where
   type MetaInfoInfoT = BEncodedT
-  miAnnounce = fromJust.parseURI.unpackBStringUTF8.lookupBDict "announce"
+  miAnnounce = fromJust.parseURI.unpackBString.lookupBDict "announce"
   miInfo = lookupBDict "info"
   miInfoHash = hash.BS.unpack.encode.miInfo
     
     
 instance MetaInfoInfo BEncodedT where 
   type MetaInfoInfoFileT = BEncodedT
-  miiName = unpackBStringUTF8.lookupBDict "name"
+  miiName = unpackBString.lookupBDict "name"
   miiPieceLength = unpackBInteger.lookupBDict "piece length"
   miiPiecesRaw = unpackBStringBS.lookupBDict "pieces"
   miiLength b = maybe Nothing (\b -> Just $ unpackBInteger b) (lookupBDict' "length" b)
@@ -85,7 +85,7 @@ instance MetaInfoInfo BEncodedT where
   
 instance MetaInfoInfoFile BEncodedT where
   miifLength = unpackBInteger.lookupBDict "length"
-  miifPath = joinPath.(map unpackBStringUTF8).unpackBList.lookupBDict "path"
+  miifPath = joinPath.(map unpackBString).unpackBList.lookupBDict "path"
 
 getSHA1s :: Get [Word160]
 getSHA1s = do  

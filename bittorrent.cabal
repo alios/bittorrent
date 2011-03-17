@@ -22,7 +22,7 @@ Library
 
   Build-depends: 
    base >= 4, network >= 2, HTTP >= 4000, Crypto >= 4, containers,
-   binary, encoding, filepath, binary, transformers, bytestring,
+   binary, utf8-string, filepath, binary, transformers, bytestring,
    directory
 
   GHC-Options: -threaded -Wall -Wwarn -O2 -fno-warn-name-shadowing 
