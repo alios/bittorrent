@@ -33,14 +33,14 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 -}
 
 
-module Data.Bittorrent.Intern (BEncodedT(..)
-                              ,unpackBStringBS
-                              ,unpackBString
-                              ,unpackBInteger
-                              ,unpackBList
-                              ,unpackBDict
-                              ,lookupBDict
-                              ,lookupBDict') where
+module Data.Bittorrent.TypeDefs (BEncodedT(..)
+                                ,unpackBStringBS
+                                ,unpackBString
+                                ,unpackBInteger
+                                ,unpackBList
+                                ,unpackBDict
+                                ,lookupBDict
+                                ,lookupBDict') where
 
 import qualified Data.ByteString.Lazy as BS
 import Data.Data (Data, Typeable)

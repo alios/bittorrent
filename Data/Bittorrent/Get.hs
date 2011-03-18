@@ -38,7 +38,7 @@ import qualified Data.Map as M
 import Data.Char (chr)
 import Data.Binary
 import Data.Binary.Get
-import Data.Bittorrent.Intern
+import Data.Bittorrent.TypeDefs
 import Data.Digest.SHA1 (Word160(..))     
 
 getWord160 :: Get Word160

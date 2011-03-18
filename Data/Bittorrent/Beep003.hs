@@ -45,7 +45,7 @@ import Data.Digest.SHA1 (Word160(..), hash)
 import Data.Maybe (fromJust)
 import Network.URI (URI, parseURI)
 import System.FilePath (joinPath)
-import Data.Bittorrent.Intern
+import Data.Bittorrent.TypeDefs
 import Data.Bittorrent.Binary ()
 
 class MetaInfo b where

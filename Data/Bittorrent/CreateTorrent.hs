@@ -50,7 +50,7 @@ import Network.URI (URI, nullURI)
 import System.Directory
 import System.FilePath
 import Data.Digest.SHA1 (Word160(..), hash)
-import Data.Bittorrent.Intern
+import Data.Bittorrent.TypeDefs
 import Data.Bittorrent.Binary ()
 import Control.Parallel
 import Data.Text.Lazy.Encoding (encodeUtf8)

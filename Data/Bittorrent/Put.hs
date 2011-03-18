@@ -37,7 +37,7 @@ import qualified Data.Map as M
 
 import Data.Binary
 import Data.Binary.Put
-import Data.Bittorrent.Intern
+import Data.Bittorrent.TypeDefs
 import Data.Digest.SHA1 (Word160(..))
 import Data.Text.Lazy.Encoding (encodeUtf8)
 import Data.Text.Lazy (pack)

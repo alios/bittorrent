@@ -34,7 +34,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 module Data.Bittorrent.Binary (decodeBEncodedFile) where
 
 import Data.Binary
-import Data.Bittorrent.Intern
+import Data.Bittorrent.TypeDefs
 import Data.Bittorrent.Get
 import Data.Bittorrent.Put
 import Data.Digest.SHA1 (Word160(..))     
