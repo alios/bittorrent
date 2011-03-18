@@ -46,6 +46,6 @@ instance Binary BEncodedT where
 instance Binary Word160 where
   get = getWord160
   put = putWord160
-  
+
 decodeBEncodedFile :: FilePath -> IO BEncodedT
 decodeBEncodedFile = decodeFile

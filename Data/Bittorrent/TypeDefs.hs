@@ -1,4 +1,5 @@
-{-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE DeriveDataTypeable, StandaloneDeriving #-}
+
 {-
 Copyright (c)2011, Markus Barenhoff
 
@@ -48,6 +49,12 @@ import Data.Maybe (fromJust)
 import Data.Text.Lazy (unpack)
 import Data.Text.Lazy.Encoding (decodeUtf8)
 import qualified Data.Map as M
+import Data.Digest.SHA1 (Word160(..))
+
+deriving instance Data Word160
+deriving instance Typeable Word160
+deriving instance Read Word160
+deriving instance Ord Word160
 
 data BEncodedT = BString BS.ByteString
                | BInteger Integer
