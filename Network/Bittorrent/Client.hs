@@ -31,11 +31,26 @@ THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 -}
 
-module Data.Bittorrent ( module Data.Bittorrent.Beep003
-                       , module Data.Bittorrent.Binary
-                       ) where
-       
+
+module Network.Bittorrent.Client () where
+
 import Data.Bittorrent.Beep003
-import Data.Bittorrent.Binary
+import Data.Digest.SHA1 (Word160)
+
+
+data ClientConfig = ClientConfig {
+  cfg_peerId :: Word160
+}
+
+trackerRequest t =
+  let info_hash = miInfoHash t
+      peer_id = undefined
+      ip = undefined
+      port = undefined
+      uploaded = undefined
+      downloaded = undefined
+      left = undefined
+      event = undefined
+  in undefined
 
 

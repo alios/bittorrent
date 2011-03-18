@@ -18,7 +18,8 @@ Tested-With:	     GHC==7.0.2
 
 Library
   Exposed-Modules:
-    Data.Bittorrent
+    Data.Bittorrent,
+    Network.Bittorrent
 
   Build-depends: 
    base >= 4, network >= 2, HTTP >= 4000, Crypto >= 4, containers,

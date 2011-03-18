@@ -32,7 +32,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 -}
 
 
-module Data.Bittorrent.CreateTorrent (cfg_announce
+module Network.Bittorrent.CreateTorrent (cfg_announce
                                      ,cfg_fp
                                      ,cfg_name
                                      ,cfg_pieceLength

@@ -31,11 +31,10 @@ THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 -}
 
-module Data.Bittorrent ( module Data.Bittorrent.Beep003
-                       , module Data.Bittorrent.Binary
-                       ) where
-       
-import Data.Bittorrent.Beep003
-import Data.Bittorrent.Binary
+module Network.Bittorrent ( module Network.Bittorrent.CreateTorrent
+                          , module Network.Bittorrent.Client
+                          ) where
 
 
+import Network.Bittorrent.CreateTorrent
+import Network.Bittorrent.Client
