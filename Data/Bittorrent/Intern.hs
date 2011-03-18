@@ -45,8 +45,8 @@ module Data.Bittorrent.Intern (BEncodedT(..)
 import qualified Data.ByteString.Lazy as BS
 import Data.Data (Data, Typeable)
 import Data.Maybe (fromJust)
-import Data.ByteString.Lazy.UTF8 (toString)
-
+import Data.Text.Lazy (unpack)
+import Data.Text.Lazy.Encoding (decodeUtf8)
 import qualified Data.Map as M
 
 data BEncodedT = BString BS.ByteString
@@ -56,7 +56,7 @@ data BEncodedT = BString BS.ByteString
                deriving (Eq, Ord, Show, Read, Data, Typeable)
                
 unpackBStringBS (BString s) = s
-unpackBString (BString s) = toString s
+unpackBString (BString s) = unpack $ decodeUtf8 s
 unpackBInteger (BInteger i) = i
 unpackBList (BList l) = l
 unpackBDict (BDict d) = d     

@@ -22,7 +22,7 @@ Library
 
   Build-depends: 
    base >= 4, network >= 2, HTTP >= 4000, Crypto >= 4, containers,
-   binary, utf8-string, filepath, binary, transformers, bytestring,
+   binary, text, filepath, binary, transformers, bytestring,
    directory, parallel
 
   GHC-Options: -threaded -Wall -Wwarn -O2 -fwarn-tabs -fwarn-unused-imports
