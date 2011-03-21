@@ -1,3 +1,4 @@
+
 {-
 Copyright (c)2011, Markus Barenhoff
 
@@ -31,13 +32,36 @@ THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 -}
 
-module Data.Bittorrent ( module Data.Bittorrent.Bep0003
-                       , module Data.Bittorrent.Bep0020
-                       , module Data.Bittorrent.Binary
-                       ) where
-       
-import Data.Bittorrent.Bep0003
-import Data.Bittorrent.Bep0020
-import Data.Bittorrent.Binary
+module Data.Bittorrent.Bep0020 (randomPeerId) where
 
+import qualified Data.ByteString.Lazy as BS
+import Data.Bittorrent.Bep0003
+import Data.Binary (decode)
+import Data.Word (Word8)
+import Data.Char (ord)
+import System.Random 
+import Data.UUID (UUID, toByteString)
+import Data.Digest.SHA1 (hash)
+
+magic :: [Word8]
+magic = map (toEnum.ord) "-HT1000-" 
+
+-- | The 20-byte peer id field sent in tracker requests and in the peer handshake has 
+--   traditionally been used not only to identify peers but also to identify the client 
+--   implementation and version.
+randomPeerId :: IO PeerID
+randomPeerId =  
+  let n = 20 - length magic
+      cs = fmap (magic ++) $ sequence $ take n $ repeat (randomIO :: IO Word8)
+  in fmap (decode.BS.pack) cs
+
+instance Random Word8 where
+  random g = 
+    let (r, g') = next g
+    in (toEnum (r `mod` 256 ), g')
+  randomR (hi,lo) g = 
+    let range = hi - lo
+        (r, g') = random g
+    in (lo + (r `mod` range), g')
+  
 
