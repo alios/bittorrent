@@ -40,7 +40,6 @@ import Data.Binary (decode)
 import Data.Word (Word8)
 import Data.Char (ord)
 import System.Random 
-import Data.UUID (UUID, toByteString)
 import Data.Digest.SHA1 (hash)
 
 magic :: [Word8]
