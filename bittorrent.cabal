@@ -1,5 +1,5 @@
 Name:		     bittorrent
-Version:             0.1
+Version:             0.2
 License:             BSD3
 License-file:        LICENSE
 Author:              Markus Barenhoff
@@ -7,7 +7,7 @@ Maintainer:          Markus Barenhoff <alios@alios.org>
 Copyright:	     Markus Barenhoff 2011
 Homepage:            http://github.com/alios/bittorrent
 
-Stability:           Stable
+Stability:           Alpha
 Category:            Network
 Synopsis: 	     A pure haskell bittorrent implementation
 
@@ -18,12 +18,13 @@ Tested-With:	     GHC==7.0.2
 
 Library
   Exposed-Modules:
-    Data.Bittorrent,
-    Network.Bittorrent
+    Data.Bittorrent.Types,
+    Data.Bittorrent.Classes,
+    Data.Bittorrent.HTTP
 
   Build-depends: 
-   base >= 4, network >= 2, HTTP >= 4000, Crypto >= 4, containers,
-   binary, text, filepath, binary, transformers, bytestring,
-   directory, random, parallel
-
+   base >= 4, network >= 2, containers, bytestring, binary, filepath,
+   utf8-light, attoparsec, text, convertible, cryptohash, url, monad-control,
+   failure, enumerator, attoparsec-enumerator, http-enumerator
+ 
   GHC-Options: -threaded -Wall -Wwarn -O2 -fwarn-tabs -fwarn-unused-imports
