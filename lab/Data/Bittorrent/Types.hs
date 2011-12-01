@@ -5,7 +5,7 @@
 {-# LANGUAGE NoMonomorphismRestriction #-}
 
 module Data.Bittorrent.Types 
-       (TorrentType(..), TorrentT (..), TString, TInteger, TList, TDict
+       (PeerId, TorrentT (..), TString, TInteger, TList, TDict
        ,getDictUTF8String, getDictByteString, getDictDict, getDictInteger
        ,getDictList, dictList, stringList, utf8string) where
 
@@ -23,9 +23,11 @@ import qualified Data.Map as M
 import Data.Set (Set)
 import qualified Data.Set as S
 import Data.Attoparsec.Char8 hiding (take)
-import qualified Data.Attoparsec.Char8 as A
-import qualified Codec.Binary.UTF8.Light as UTF8
-import Data.Char
+import qualified Data.Attoparsec.Char8 as A (take)
+import qualified Codec.Binary.UTF8.Light as UTF8 (encode, decode)
+import Data.Char (ord)
+
+type PeerId = ByteString
 
 data TorrentType = TTS (TT TString)
                  | TTI (TT TInteger)
@@ -195,8 +197,7 @@ instance Binary (TT TDict) where
     _ <- sequence $ map (\(k,v) -> do put k; genericPut v) ls 
     putAsciiChar 'e'
     P.flush
-    
-keysort (k1,_) (k2,_) = compare k1 k2
+    where keysort (k1,_) (k2,_) = compare k1 k2
 
 getDictUTF8String :: String -> (TT TDict) -> Maybe String
 getDictUTF8String k (TD d) = 

@@ -1,43 +1,21 @@
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE TypeSynonymInstances #-}
 
-module Data.Bittorrent.Classes (Metainfo(..), Fileinfo(..)) where
+module Data.Bittorrent.Classes (MetainfoT, FileinfoT, Metainfo(..), Fileinfo(..)) where
 
 import System.FilePath (joinPath)
 import Data.Maybe (fromJust)
 import Data.Set (Set)
-import Network.URI (URI, parseURI)
+import Network.URI (URI, parseAbsoluteURI, uriToString)
+import qualified Network.URL as URL
 import Data.Bittorrent.Types
 import Data.Attoparsec.Char8
 import Data.ByteString (ByteString)
 import qualified Data.ByteString as BS 
 import qualified Data.ByteString.Lazy as BL
-
+import qualified Crypto.Hash.SHA1 as SHA1
 import Data.Binary
-
-t2 = do 
-  bs <- BL.readFile "/tmp/t2.torrent"
-  let d = (decode bs :: (TT TDict))
-  printMetainfo d
-  let e = encode d
-  let d2 = (decode e :: (TT TDict))
-  --print e
-  printMetainfo d2
-  
-
-bsSplitI :: Int -> ByteString -> [ByteString]
-bsSplitI i bs = let f' bs'
-                      | BS.null bs' = []
-                      | otherwise = (BS.take i bs') : (f' $ BS.drop i bs')
-                in f' bs
-
-t = do
-  tf' <- BS.readFile "/tmp/t.torrent"
-  let r = parse (parser :: Parser (TT TDict)) tf' 
-  case r of
-    (Done _ tf) -> printMetainfo tf
-      
-
-  
+import Data.Convertible
   
 class Metainfo t where
   printMetainfo :: t -> IO ()
@@ -50,6 +28,8 @@ class Metainfo t where
     print $ meta_infoPieceLength tf
     print "infoPieces (count):"
     print $ length $ meta_infoPieces tf
+    print "infoHash:"
+    print $ meta_infoHash tf
     let lfs = meta_infoLengthFiles tf 
     case (lfs) of
       Left l -> 
@@ -60,8 +40,10 @@ class Metainfo t where
            _ <- sequence $ map printFileInfo fs
            return ()
 
+  -- | The 20 byte sha1 hash of the bencoded form of the info value from the metainfo file
+  meta_infoHash :: t -> ByteString
   -- | The URL of the tracker.
-  meta_announce :: t -> URI
+  meta_announce :: t -> URL.URL
   -- | This maps to a dictionary, with keys described below.
   meta_infoDict :: t -> TT TDict
   -- | The 'name' key maps to a UTF-8 encoded string which is the suggested name to save the 
@@ -89,17 +71,22 @@ class Metainfo t where
       Nothing  -> case (meta_infoFiles t) of 
         (Just fs) -> Right fs
         Nothing -> fail "neither 'length' nor 'files' in metadatafile"
-
-
-instance Metainfo (TT TDict) where
-  meta_announce = fromJust . parseURI . fromJust . getDictUTF8String "announce"
+  meta_infoTotalLength :: t -> Integer 
+  meta_infoTotalLength t = case (meta_infoLengthFiles t) of
+    Left l -> l
+    Right fs -> sum $ map file_length fs
+    
+    
+type MetainfoT = TT TDict
+instance Metainfo (MetainfoT) where
+  meta_announce m = fromJust . URL.importURL . (uriToString id . fromJust . parseAbsoluteURI . fromJust . getDictUTF8String "announce") m $ ""
   meta_infoDict = fromJust . getDictDict "info"
   meta_infoName = fromJust . getDictUTF8String "name" . meta_infoDict
   meta_infoPieceLength = fromJust . getDictInteger "piece length" . meta_infoDict
   meta_infoPieces = bsSplitI 20 . fromJust . getDictByteString "pieces". meta_infoDict
   meta_infoLength = getDictInteger "length" . meta_infoDict
   meta_infoFiles = dictList . fromJust . getDictList "files" . meta_infoDict
-
+  meta_infoHash = SHA1.hash . convert . encode . meta_infoDict
 
 -- | For the purposes of the other keys, the multi-file case is treated as only having a single 
 --   file by concatenating the files in the order they appear in the files list. 
@@ -120,10 +107,35 @@ class Fileinfo t where
   -- | 'path' - A list of UTF-8 encoded strings corresponding to subdirectory names, 
   --   the last of which is the actual file name (a zero length list is an error case).
   file_path :: t -> FilePath
-  
-
-
-instance Fileinfo (TT TDict) where
+ 
+type FileinfoT = TT TDict
+instance Fileinfo FileinfoT where
   file_length = fromJust . getDictInteger "length"
   file_path = joinPath . map utf8string . fromJust . stringList . fromJust . getDictList "path"
   
+
+-- 
+-- helpers
+--
+bsSplitI :: Int -> ByteString -> [ByteString]
+bsSplitI i bs = let f' bs'
+                      | BS.null bs' = []
+                      | otherwise = (BS.take i bs') : (f' $ BS.drop i bs')
+                in f' bs
+t2 = do 
+  bs <- BL.readFile "/tmp/t2.torrent"
+  let d = (decode bs :: (TT TDict))
+  printMetainfo d
+  let e = encode d
+  let d2 = (decode e :: (TT TDict))
+  --print e
+  printMetainfo d2
+  print $ meta_infoDict d
+  
+
+t = do
+  tf' <- BS.readFile "/tmp/t.torrent"
+  let r = parse (parser :: Parser (TT TDict)) tf' 
+  case r of
+    (Done _ tf) -> printMetainfo tf
+        
