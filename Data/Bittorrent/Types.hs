@@ -70,6 +70,7 @@ instance TorrentT TString where
   data TT TString = TS ByteString
   toTorrentType ts = TTS ts
   fromTorrentType (TTS ts) = Just $ ts
+  fromTorrentType _ = Nothing
   parser = do {
     l <- fmap read $ many1 digit;
     _ <- char ':';
@@ -113,6 +114,7 @@ instance TorrentT TInteger where
                    deriving (Eq, Ord, Show)
   toTorrentType ti = TTI ti
   fromTorrentType (TTI ti) = Just $ ti
+  fromTorrentType _ = Nothing
   parser = 
     let zeroParser = do {
           _ <- sequence $ map char "i0e";
@@ -147,6 +149,7 @@ instance TorrentT TList where
                 deriving (Show, Eq)
   toTorrentType tl = TTL tl
   fromTorrentType (TTL tl) = Just $ tl
+  fromTorrentType _ = Nothing
   parser = do
     _ <- char 'l'
     xs <- many torrentParser
@@ -180,6 +183,7 @@ instance TorrentT TDict where
                   deriving (Show, Eq)
   toTorrentType td = TTD td
   fromTorrentType (TTD td) = Just $ td
+  fromTorrentType _ = Nothing
   parser = do
     _ <- char 'd'
     kvs <- many $ do

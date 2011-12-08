@@ -7,7 +7,6 @@ import System.FilePath (joinPath)
 import Data.Maybe (fromJust)
 import Data.Set (Set)
 import Network.URI (URI, parseAbsoluteURI, uriToString)
-import qualified Network.URL as URL
 import Data.Bittorrent.Types
 import Data.Attoparsec.Char8
 import Data.ByteString (ByteString)
@@ -16,6 +15,7 @@ import qualified Data.ByteString.Lazy as BL
 import qualified Crypto.Hash.SHA1 as SHA1
 import Data.Binary
 import Data.Convertible
+import Numeric (showHex)
   
 class Metainfo t where
   printMetainfo :: t -> IO ()
@@ -42,8 +42,11 @@ class Metainfo t where
 
   -- | The 20 byte sha1 hash of the bencoded form of the info value from the metainfo file
   meta_infoHash :: t -> ByteString
+  meta_infoHashHex :: t -> String
+  meta_infoHashHex =  bs2hexstring . BS.unpack . meta_infoHash
+  
   -- | The URL of the tracker.
-  meta_announce :: t -> URL.URL
+  meta_announce :: t -> URI
   -- | This maps to a dictionary, with keys described below.
   meta_infoDict :: t -> TT TDict
   -- | The 'name' key maps to a UTF-8 encoded string which is the suggested name to save the 
@@ -79,7 +82,7 @@ class Metainfo t where
     
 type MetainfoT = TT TDict
 instance Metainfo (MetainfoT) where
-  meta_announce m = fromJust . URL.importURL . (uriToString id . fromJust . parseAbsoluteURI . fromJust . getDictUTF8String "announce") m $ ""
+  meta_announce = fromJust . parseAbsoluteURI . fromJust . getDictUTF8String "announce"
   meta_infoDict = fromJust . getDictDict "info"
   meta_infoName = fromJust . getDictUTF8String "name" . meta_infoDict
   meta_infoPieceLength = fromJust . getDictInteger "piece length" . meta_infoDict
@@ -122,6 +125,15 @@ bsSplitI i bs = let f' bs'
                       | BS.null bs' = []
                       | otherwise = (BS.take i bs') : (f' $ BS.drop i bs')
                 in f' bs
+                   
+                   
+bs2hexstring = 
+  let c x = let h = (showHex x) "" 
+            in if (length h == 2) 
+               then h 
+               else ("0" ++ h)
+  in concat . map c
+     
 t2 = do 
   bs <- BL.readFile "/tmp/t2.torrent"
   let d = (decode bs :: (TT TDict))
